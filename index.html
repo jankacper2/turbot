@@ -1327,6 +1327,15 @@
         if (jRows && jRows.length > 0) {
           jRows.forEach(r => { journalData[r.date] = { text: r.content }; });
           buildStream();
+          setTimeout(() => {
+            const key = todayKey();
+            const block = document.getElementById('block-' + key);
+            const stream = document.getElementById('stream');
+            if (block && stream) {
+              const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+              stream.scrollBy({ top: diff, behavior: 'instant' });
+            }
+          }, 50);
         }
         // Todos
         const { data: tRows } = await sb.from('todos').select('data').eq('user_id', currentUser.id).maybeSingle();
