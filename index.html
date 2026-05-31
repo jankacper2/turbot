@@ -1298,13 +1298,13 @@
           buildStream();
         }
         // Todos
-        const { data: tRows } = await sb.from('todos').select('data').eq('user_id', currentUser.id).single();
+        const { data: tRows } = await sb.from('todos').select('data').eq('user_id', currentUser.id).maybeSingle();
         if (tRows && tRows.data) {
           todoData = JSON.parse(tRows.data);
           buildTodo();
         }
         // Done
-        const { data: dRows } = await sb.from('done').select('data').eq('user_id', currentUser.id).single();
+        const { data: dRows } = await sb.from('done').select('data').eq('user_id', currentUser.id).maybeSingle();
         if (dRows && dRows.data) {
           doneData = JSON.parse(dRows.data);
           buildDoneStream();
