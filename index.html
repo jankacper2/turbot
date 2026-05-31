@@ -130,18 +130,22 @@
       }
 
       #cal-grid {
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(4, 1fr) !important;
         gap: 2px;
-        padding: 8px;
+        padding: 6px 8px;
+        max-width: 90%;
+        margin: 0 auto;
       }
 
       .cal-btn {
-        font-size: 12px;
+        font-size: 14px;
+        aspect-ratio: 1 !important;
+        padding: 0;
       }
 
       #clock {
-        font-size: 22px;
-        padding: 8px 12px;
+        font-size: 24px;
+        padding: 10px 12px;
       }
     }
 
@@ -557,7 +561,7 @@
       </div>
       <div class="col-inner">
         <div id="cal-grid"><button class="cal-btn" data-day="1">1</button><button class="cal-btn" data-day="2">2</button><button class="cal-btn" data-day="3">3</button><button class="cal-btn" data-day="4">4</button><button class="cal-btn" data-day="5">5</button><button class="cal-btn" data-day="6">6</button><button class="cal-btn" data-day="7">7</button><button class="cal-btn" data-day="8">8</button><button class="cal-btn" data-day="9">9</button><button class="cal-btn" data-day="10">10</button><button class="cal-btn" data-day="11">11</button><button class="cal-btn" data-day="12">12</button><button class="cal-btn" data-day="13">13</button><button class="cal-btn" data-day="14">14</button><button class="cal-btn" data-day="15">15</button><button class="cal-btn" data-day="16">16</button><button class="cal-btn" data-day="17">17</button><button class="cal-btn" data-day="18">18</button><button class="cal-btn" data-day="19">19</button><button class="cal-btn" data-day="20">20</button><button class="cal-btn" data-day="21">21</button><button class="cal-btn" data-day="22">22</button><button class="cal-btn" data-day="23">23</button><button class="cal-btn" data-day="24">24</button><button class="cal-btn" data-day="25">25</button><button class="cal-btn" data-day="26">26</button><button class="cal-btn" data-day="27">27</button><button class="cal-btn" data-day="28">28</button><button class="cal-btn" data-day="29">29</button><button class="cal-btn today selected" data-day="30">30</button><button class="cal-btn" data-day="31">31</button></div>
-        <div id="clock" onclick="insertTime()" title="Kliknij żeby wstawić godzinę">10:08</div>
+        <div id="clock" onclick="insertTimeAndGo()" title="Kliknij żeby wstawić godzinę">10:08</div>
       </div>
     </div>
 
@@ -704,7 +708,16 @@
         btn.dataset.day = d;
         if (d === today) btn.classList.add('today', 'selected');
         if (journalData[key] && journalData[key].text) btn.classList.add('has-entry');
-        btn.addEventListener('click', () => scrollToDay(key, btn));
+        btn.addEventListener('click', () => {
+          scrollToDay(key, btn);
+          if (window.innerWidth <= 768) {
+            const layout = document.querySelector('.layout');
+            const colJournal = document.querySelector('.col-journal');
+            if (layout && colJournal) {
+              layout.scrollTo({ top: colJournal.offsetTop, behavior: 'smooth' });
+            }
+          }
+        });
         grid.appendChild(btn);
       }
     }
@@ -1113,6 +1126,26 @@
       const now = new Date();
       const el  = document.getElementById('clock');
       if (el) el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function insertTimeAndGo() {
+      insertTime();
+      if (window.innerWidth <= 768) {
+        const layout = document.querySelector('.layout');
+        const colJournal = document.querySelector('.col-journal');
+        if (layout && colJournal) {
+          layout.scrollTo({ top: colJournal.offsetTop, behavior: 'smooth' });
+        }
+        setTimeout(() => {
+          const key = todayKey();
+          const block = document.getElementById('block-' + key);
+          const stream = document.getElementById('stream');
+          if (block && stream) {
+            const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+            stream.scrollBy({ top: diff, behavior: 'instant' });
+          }
+        }, 350);
+      }
     }
 
     function insertTime() {
