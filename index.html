@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dziennik</title>
-  <link href="index_files/css2.css" rel="stylesheet">
-  <link href="index_files/css2_002.css" rel="stylesheet">
-  <script src="index_files/supabase-js@2"></script>
+  <link href="1008am_files/css2.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Kalam&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
   <style>
     /* ================================================
@@ -538,7 +538,7 @@
 </head>
 <body>
 
-  <div id="auth-screen" style="display: flex;">
+  <div id="auth-screen">
     <h1>Dziennik</h1>
     <button id="btn-login" onclick="signInWithGitHub()">Zaloguj przez GitHub</button>
     <div id="auth-error"></div>
@@ -566,7 +566,7 @@
       </div>
       <div class="col-inner">
         <div id="cal-grid"><button class="cal-btn" data-day="1">1</button><button class="cal-btn" data-day="2">2</button><button class="cal-btn" data-day="3">3</button><button class="cal-btn" data-day="4">4</button><button class="cal-btn" data-day="5">5</button><button class="cal-btn" data-day="6">6</button><button class="cal-btn" data-day="7">7</button><button class="cal-btn" data-day="8">8</button><button class="cal-btn" data-day="9">9</button><button class="cal-btn" data-day="10">10</button><button class="cal-btn" data-day="11">11</button><button class="cal-btn" data-day="12">12</button><button class="cal-btn" data-day="13">13</button><button class="cal-btn" data-day="14">14</button><button class="cal-btn" data-day="15">15</button><button class="cal-btn" data-day="16">16</button><button class="cal-btn" data-day="17">17</button><button class="cal-btn" data-day="18">18</button><button class="cal-btn" data-day="19">19</button><button class="cal-btn" data-day="20">20</button><button class="cal-btn" data-day="21">21</button><button class="cal-btn" data-day="22">22</button><button class="cal-btn" data-day="23">23</button><button class="cal-btn" data-day="24">24</button><button class="cal-btn" data-day="25">25</button><button class="cal-btn" data-day="26">26</button><button class="cal-btn" data-day="27">27</button><button class="cal-btn" data-day="28">28</button><button class="cal-btn" data-day="29">29</button><button class="cal-btn today selected" data-day="30">30</button><button class="cal-btn" data-day="31">31</button></div>
-        <div id="clock" onclick="insertTime()" title="Kliknij żeby wstawić godzinę">02:43</div>
+        <div id="clock" onclick="insertTime()" title="Kliknij żeby wstawić godzinę">10:08</div>
       </div>
     </div>
 
@@ -584,7 +584,7 @@
         <span class="toggle-arrow">▾</span>
       </div>
       <div class="col-inner" id="todo-inner">
-        <div id="todo-sections"><div class="todo-section" id="section-p583yoq"><div class="section-header"><span class="section-arrow">▾</span><span class="section-title" contenteditable="true">Ogólne</span></div><div class="section-body"><div id="tasks-p583yoq"></div><input type="text" class="add-task-input" placeholder="dodaj..."></div></div></div>
+        <div id="todo-sections"><div class="todo-section" id="section-n61gntf"><div class="section-header"><span class="section-arrow">▾</span><span class="section-title" contenteditable="true">Ogólne</span></div><div class="section-body"><div id="tasks-n61gntf"></div><input type="text" class="add-task-input" placeholder="dodaj..."></div></div></div>
         <button id="btn-add-section" onclick="addSection()">+ nowa sekcja</button>
       </div>
     </div>
