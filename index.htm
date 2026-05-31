@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="pl"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dziennik</title>
+  <link href="index_files/css2.css" rel="stylesheet">
+  <link href="index_files/css2_002.css" rel="stylesheet">
+  <script src="index_files/supabase.js"></script>
+
+  <style>
+    /* ================================================
+       base.css — reset, layout, kolumny, header
+       ================================================ */
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Patrick Hand', cursive;
+      background: #f2ede4;
+      color: #2b2b2b;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      height: 40px;
+      background: #2b2b2b;
+      color: #f2ede4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    #save-status {
+      position: absolute;
+      right: 1rem;
+      font-size: 11px;
+      opacity: 0.5;
+      font-style: italic;
+    }
+
+    #btn-undo {
+      position: absolute;
+      left: 1rem;
+      background: none;
+      border: none;
+      color: rgba(242, 237, 228, 0.7);
+      font-family: 'Patrick Hand', cursive;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    #btn-undo:hover {
+      color: rgba(242, 237, 228, 1);
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    @media (max-width: 768px) {
+      html, body {
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+
+      .layout {
+        flex-direction: column;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        height: calc(100vh - 40px);
+        scroll-snap-type: y mandatory;
+      }
+
+      .col-cal,
+      .col-journal,
+      .col-todo,
+      .col-done {
+        width: 100% !important;
+        flex: none;
+        height: calc(100vh - 40px);
+        min-height: calc(100vh - 40px);
+        border-right: none;
+        border-bottom: 1px solid rgba(43, 43, 43, 0.1);
+        overflow: hidden;
+        scroll-snap-align: start;
+      }
+
+      .col-cal.collapsed,
+      .col-journal.collapsed,
+      .col-todo.collapsed,
+      .col-done.collapsed {
+        height: auto;
+        min-height: auto;
+      }
+
+      .col-inner {
+        max-height: none !important;
+        overflow-y: auto;
+      }
+    }
+
+    .col-cal,
+    .col-journal,
+    .col-todo,
+    .col-done {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid rgba(43, 43, 43, 0.1);
+    }
+
+    .col-cal     { width: 160px; flex-shrink: 0; background: #ebe6dc; }
+    .col-journal { flex: 1; background: #f2ede4; }
+    .col-todo    { flex: 1; background: #ebe6dc; border-right: 1px solid rgba(43,43,43,0.1); }
+    .col-done    { flex: 1; background: #f2ede4; border-right: none; }
+
+    .col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(43, 43, 43, 0.4);
+      border-bottom: 1px solid rgba(43, 43, 43, 0.08);
+      cursor: pointer;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .col-header:hover { color: rgba(43, 43, 43, 0.6); }
+
+    .toggle-arrow {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .col-inner {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .col-cal.collapsed,
+    .col-journal.collapsed,
+    .col-todo.collapsed,
+    .col-done.collapsed {
+      width: 30px !important;
+      flex: none !important;
+    }
+
+    .collapsed .col-inner { display: none; }
+    .collapsed .col-header span:first-child { display: none; }
+    .collapsed .toggle-arrow { transform: rotate(-90deg); }
+
+    /* ================================================
+       journal.css — kalendarz, zegar, stream dziennika
+       ================================================ */
+
+    #cal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 12px;
+    }
+
+    .cal-btn {
+      aspect-ratio: 1;
+      border: none;
+      background: transparent;
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      color: rgba(43, 43, 43, 0.5);
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background 0.1s;
+    }
+
+    .cal-btn:hover       { background: rgba(43, 43, 43, 0.07); }
+    .cal-btn.has-entry   { color: rgba(43, 43, 43, 0.8); }
+    .cal-btn.today       { background: #2b2b2b; color: #f2ede4; font-weight: bold; }
+    .cal-btn.selected    { background: rgba(43, 43, 43, 0.15); }
+    .cal-btn.today.selected { background: #2b2b2b; }
+
+    #clock {
+      font-family: Futura, 'Century Gothic', sans-serif;
+      font-size: 32px;
+      font-weight: 300;
+      letter-spacing: 0.1em;
+      color: rgba(43, 43, 43, 0.5);
+      text-align: center;
+      padding: 16px 12px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    #clock:hover { color: rgba(43, 43, 43, 0.8); }
+
+    #stream {
+      padding: 2rem 2.5rem;
+    }
+
+    #stream::after {
+      content: '';
+      display: block;
+      height: 80vh;
+    }
+
+    .day-block    { margin-bottom: 2rem; }
+
+    .day-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .day-date {
+      font-size: 15px;
+      color: rgba(43, 43, 43, 0.65);
+      font-family: 'Libre Baskerville', serif;
+      flex-shrink: 0;
+    }
+
+    .day-textarea {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-family: 'Kalam', cursive;
+      font-size: 17px;
+      line-height: 1.7;
+      color: rgba(43, 43, 43, 0.72);
+      resize: none;
+      outline: none;
+      min-height: 40px;
+      overflow: hidden;
+      display: block;
+    }
+
+    .day-textarea::placeholder {
+      color: rgba(43, 43, 43, 0.2);
+      font-style: italic;
+    }
+
+    /* ================================================
+       todo.css — lista zadań
+       ================================================ */
+
+    #todo-inner { padding: 12px; }
+
+    .todo-section { margin-bottom: 4px; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 4px;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 4px;
+    }
+
+    .section-header:hover { background: rgba(43, 43, 43, 0.05); }
+
+    .section-arrow {
+      font-size: 10px;
+      color: rgba(43, 43, 43, 0.35);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .section-arrow.closed { transform: rotate(-90deg); }
+
+    .section-title {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 14px;
+      color: rgba(43, 43, 43, 0.6);
+      outline: none;
+      flex: 1;
+    }
+
+    .section-title:focus { color: #2b2b2b; }
+
+    .section-body {
+      padding-left: 16px;
+      padding-bottom: 4px;
+    }
+
+    .section-body.hidden { display: none; }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+      transition: max-height 0.8s ease, opacity 0.8s ease, padding 0.8s ease;
+      max-height: 60px;
+      overflow: hidden;
+    }
+
+    .task-item.completing .task-text {
+      text-decoration: line-through;
+      opacity: 0.4;
+      transition: opacity 0.4s ease, text-decoration 0.4s ease;
+    }
+
+    .task-item.removing {
+      max-height: 0;
+      opacity: 0;
+      padding: 0;
+    }
+
+    .task-checkbox {
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid rgba(43, 43, 43, 0.25);
+      border-radius: 3px;
+      flex-shrink: 0;
+      cursor: pointer;
+      appearance: none;
+      background: transparent;
+      transition: all 0.15s;
+    }
+
+    .task-checkbox:checked { background: #2b2b2b; border-color: #2b2b2b; }
+
+    .task-text {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 14px;
+      color: rgba(43, 43, 43, 0.72);
+      line-height: 1.4;
+      border-bottom: 1.5px solid;
+      padding-bottom: 1px;
+      flex: 1;
+      outline: none;
+    }
+
+    .task-arrows {
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .task-item:hover .task-arrows { opacity: 1; }
+
+    .arrow-btn {
+      background: none;
+      border: none;
+      font-size: 9px;
+      color: rgba(43, 43, 43, 0.35);
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1.2;
+    }
+
+    .arrow-btn:hover { color: rgba(43, 43, 43, 0.7); }
+
+    .task-delete {
+      background: none;
+      border: none;
+      font-size: 14px;
+      color: rgba(43, 43, 43, 0.2);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    .task-item:hover .task-delete { opacity: 1; }
+    .task-delete:hover { color: rgba(43, 43, 43, 0.5); }
+
+    /* Kolory rarity */
+    .rarity-common    { border-color: #aaaaaa; }
+    .rarity-uncommon  { border-color: #1e9e08; }
+    .rarity-rare      { border-color: #4a90d9; }
+    .rarity-epic      { border-color: #a335ee; }
+    .rarity-legendary { border-color: #ff8000; }
+
+    .rarity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .rarity-dot:hover { transform: scale(1.4); }
+
+    .dot-common    { background: #aaaaaa; }
+    .dot-uncommon  { background: #1e9e08; }
+    .dot-rare      { background: #4a90d9; }
+    .dot-epic      { background: #a335ee; }
+    .dot-legendary { background: #ff8000; }
+
+    .add-task-input {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid rgba(43, 43, 43, 0.1);
+      background: transparent;
+      font-family: 'Patrick Hand', cursive;
+      font-size: 14px;
+      color: rgba(43, 43, 43, 0.4);
+      padding: 4px 0;
+      outline: none;
+      margin-top: 3px;
+    }
+
+    .add-task-input::placeholder { color: rgba(43, 43, 43, 0.22); }
+    .add-task-input:focus {
+      color: #2b2b2b;
+      border-bottom-color: rgba(43, 43, 43, 0.25);
+    }
+
+    #btn-add-section {
+      background: none;
+      border: none;
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      color: rgba(43, 43, 43, 0.3);
+      cursor: pointer;
+      padding: 8px 4px;
+      display: block;
+    }
+
+    #btn-add-section:hover { color: rgba(43, 43, 43, 0.6); }
+
+    /* ================================================
+       done.css — historia wykonanych zadań
+       ================================================ */
+
+    #done-stream {
+      padding: 2rem 2rem;
+    }
+
+    #done-stream::after {
+      content: '';
+      display: block;
+      height: 80vh;
+    }
+
+    .done-day-block { margin-bottom: 2rem; }
+
+    .done-date {
+      font-size: 15px;
+      color: rgba(43, 43, 43, 0.65);
+      font-family: 'Libre Baskerville', serif;
+      margin-bottom: 6px;
+    }
+
+    .done-task {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      padding: 3px 0;
+      opacity: 1;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .done-task.appearing {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+
+    .done-task-text {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 15px;
+      color: rgba(43, 43, 43, 0.6);
+      text-decoration: line-through;
+      text-decoration-color: currentColor;
+      padding-bottom: 1px;
+      line-height: 1.4;
+    }
+
+    .done-task-text.rarity-common    { color: #aaaaaa; }
+    .done-task-text.rarity-uncommon  { color: #1e9e08; }
+    .done-task-text.rarity-rare      { color: #4a90d9; }
+    .done-task-text.rarity-epic      { color: #a335ee; }
+    .done-task-text.rarity-legendary { color: #ff8000; }
+
+    /* ================================================
+       auth — ekran logowania
+       ================================================ */
+    #auth-screen {
+      position: fixed; inset: 0; z-index: 1000;
+      background: #f2ede4;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px;
+    }
+    #auth-screen h1 {
+      font-family: 'Libre Baskerville', serif;
+      font-size: 22px; color: rgba(43,43,43,0.7);
+      font-weight: normal;
+    }
+    #btn-login {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 15px; padding: 10px 24px;
+      background: #2b2b2b; color: #f2ede4;
+      border: none; border-radius: 6px; cursor: pointer;
+    }
+    #btn-login:hover { background: #444; }
+    #auth-error { font-family: 'Patrick Hand', cursive; color: rgba(200,60,60,0.8); font-size: 13px; }
+    #user-info {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 12px; color: rgba(242,237,228,0.6);
+      cursor: pointer;
+    }
+    #user-info:hover { color: rgba(242,237,228,0.9); }
+    .sync-dot {
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: rgba(242,237,228,0.3);
+      margin-left: 6px; vertical-align: middle;
+      transition: background 0.3s;
+    }
+    .sync-dot.syncing { background: #f0c040; }
+    .sync-dot.synced  { background: #60c060; }
+    .sync-dot.error   { background: #e05050; }
+  </style>
+</head>
+<body>
+
+  <div id="auth-screen">
+    <h1>Dziennik</h1>
+    <input id="password-input" type="password" placeholder="hasło" style="font-family:'Patrick Hand',cursive;font-size:16px;padding:10px 16px;border:1px solid rgba(43,43,43,0.2);border-radius:6px;background:#f2ede4;outline:none;text-align:center;" onkeydown="if(event.key==='Enter')checkPassword()">
+    <button id="btn-login" onclick="checkPassword()">Wejdź</button>
+    <div id="auth-error"></div>
+  </div>
+
+  <header>
+    <span id="header-title">MAJ 2026</span>
+    <button id="btn-undo" onclick="undo()">↩ cofnij</button>
+    <div style="position:absolute; right:1rem; display:flex; align-items:center; gap:12px;">
+      <button onclick="exportData()" style="background:none;border:none;color:rgba(242,237,228,0.6);font-family:'Patrick Hand',cursive;font-size:12px;cursor:pointer;">↓ eksport</button>
+      <label style="color:rgba(242,237,228,0.6);font-family:'Patrick Hand',cursive;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:normal;">
+        ↑ import
+        <input type="file" accept=".json" onchange="importData(event)" style="display:none;">
+      </label>
+      <span class="sync-dot" id="sync-dot"></span><span id="user-info" onclick="signOut()" title="Kliknij żeby się wylogować"></span>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <div class="col-cal">
+      <div class="col-header" onclick="toggleCol('col-cal')">
+        <span>Kalendarz</span>
+        <span class="toggle-arrow">▾</span>
+      </div>
+      <div class="col-inner">
+        <div id="cal-grid"><button class="cal-btn" data-day="1">1</button><button class="cal-btn" data-day="2">2</button><button class="cal-btn" data-day="3">3</button><button class="cal-btn" data-day="4">4</button><button class="cal-btn" data-day="5">5</button><button class="cal-btn" data-day="6">6</button><button class="cal-btn" data-day="7">7</button><button class="cal-btn" data-day="8">8</button><button class="cal-btn" data-day="9">9</button><button class="cal-btn" data-day="10">10</button><button class="cal-btn" data-day="11">11</button><button class="cal-btn" data-day="12">12</button><button class="cal-btn" data-day="13">13</button><button class="cal-btn" data-day="14">14</button><button class="cal-btn" data-day="15">15</button><button class="cal-btn" data-day="16">16</button><button class="cal-btn" data-day="17">17</button><button class="cal-btn" data-day="18">18</button><button class="cal-btn" data-day="19">19</button><button class="cal-btn" data-day="20">20</button><button class="cal-btn" data-day="21">21</button><button class="cal-btn" data-day="22">22</button><button class="cal-btn" data-day="23">23</button><button class="cal-btn" data-day="24">24</button><button class="cal-btn" data-day="25">25</button><button class="cal-btn" data-day="26">26</button><button class="cal-btn" data-day="27">27</button><button class="cal-btn" data-day="28">28</button><button class="cal-btn" data-day="29">29</button><button class="cal-btn" data-day="30">30</button><button class="cal-btn today selected" data-day="31">31</button></div>
+        <div id="clock" onclick="insertTime()" title="Kliknij żeby wstawić godzinę">13:19</div>
+      </div>
+    </div>
+
+    <div class="col-journal">
+      <div class="col-header" onclick="toggleCol('col-journal')">
+        <span>Dziennik</span>
+        <span class="toggle-arrow">▾</span>
+      </div>
+      <div class="col-inner" id="stream"><div class="day-block" id="block-2026-05-01"><div class="day-header"><span class="day-date">Piątek, 1 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-02"><div class="day-header"><span class="day-date">Sobota, 2 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-03"><div class="day-header"><span class="day-date">Niedziela, 3 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-04"><div class="day-header"><span class="day-date">Poniedziałek, 4 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-05"><div class="day-header"><span class="day-date">Wtorek, 5 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-06"><div class="day-header"><span class="day-date">Środa, 6 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-07"><div class="day-header"><span class="day-date">Czwartek, 7 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-08"><div class="day-header"><span class="day-date">Piątek, 8 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-09"><div class="day-header"><span class="day-date">Sobota, 9 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-10"><div class="day-header"><span class="day-date">Niedziela, 10 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-11"><div class="day-header"><span class="day-date">Poniedziałek, 11 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-12"><div class="day-header"><span class="day-date">Wtorek, 12 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-13"><div class="day-header"><span class="day-date">Środa, 13 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-14"><div class="day-header"><span class="day-date">Czwartek, 14 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-15"><div class="day-header"><span class="day-date">Piątek, 15 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-16"><div class="day-header"><span class="day-date">Sobota, 16 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-17"><div class="day-header"><span class="day-date">Niedziela, 17 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-18"><div class="day-header"><span class="day-date">Poniedziałek, 18 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-19"><div class="day-header"><span class="day-date">Wtorek, 19 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-20"><div class="day-header"><span class="day-date">Środa, 20 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-21"><div class="day-header"><span class="day-date">Czwartek, 21 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-22"><div class="day-header"><span class="day-date">Piątek, 22 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-23"><div class="day-header"><span class="day-date">Sobota, 23 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-24"><div class="day-header"><span class="day-date">Niedziela, 24 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-25"><div class="day-header"><span class="day-date">Poniedziałek, 25 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-26"><div class="day-header"><span class="day-date">Wtorek, 26 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-27"><div class="day-header"><span class="day-date">Środa, 27 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-28"><div class="day-header"><span class="day-date">Czwartek, 28 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-29"><div class="day-header"><span class="day-date">Piątek, 29 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-30"><div class="day-header"><span class="day-date">Sobota, 30 Maj 2026</span></div><textarea class="day-textarea" placeholder="" style="height: 58px;"></textarea></div><div class="day-block" id="block-2026-05-31"><div class="day-header"><span class="day-date">Niedziela, 31 Maj 2026</span></div><textarea class="day-textarea" placeholder="pisz..." style="height: 58px;"></textarea></div></div>
+    </div>
+
+    <div class="col-todo">
+      <div class="col-header" onclick="toggleCol('col-todo')">
+        <span>Do zrobienia</span>
+        <span class="toggle-arrow">▾</span>
+      </div>
+      <div class="col-inner" id="todo-inner">
+        <div id="todo-sections"><div class="todo-section" id="section-y6ts3uf"><div class="section-header"><span class="section-arrow">▾</span><span class="section-title" contenteditable="true">Ogólne</span></div><div class="section-body"><div id="tasks-y6ts3uf"></div><input type="text" class="add-task-input" placeholder="dodaj..."></div></div></div>
+        <button id="btn-add-section" onclick="addSection()">+ nowa sekcja</button>
+      </div>
+    </div>
+
+    <div class="col-done">
+      <div class="col-header" onclick="toggleCol('col-done')">
+        <span>Wykonane</span>
+        <span class="toggle-arrow">▾</span>
+      </div>
+      <div class="col-inner" id="done-stream"><div class="done-day-block" id="done-block-2026-05-01"><div class="done-date"><span>Piątek, 1 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-02"><div class="done-date"><span>Sobota, 2 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-03"><div class="done-date"><span>Niedziela, 3 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-04"><div class="done-date"><span>Poniedziałek, 4 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-05"><div class="done-date"><span>Wtorek, 5 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-06"><div class="done-date"><span>Środa, 6 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-07"><div class="done-date"><span>Czwartek, 7 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-08"><div class="done-date"><span>Piątek, 8 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-09"><div class="done-date"><span>Sobota, 9 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-10"><div class="done-date"><span>Niedziela, 10 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-11"><div class="done-date"><span>Poniedziałek, 11 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-12"><div class="done-date"><span>Wtorek, 12 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-13"><div class="done-date"><span>Środa, 13 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-14"><div class="done-date"><span>Czwartek, 14 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-15"><div class="done-date"><span>Piątek, 15 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-16"><div class="done-date"><span>Sobota, 16 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-17"><div class="done-date"><span>Niedziela, 17 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-18"><div class="done-date"><span>Poniedziałek, 18 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-19"><div class="done-date"><span>Wtorek, 19 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-20"><div class="done-date"><span>Środa, 20 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-21"><div class="done-date"><span>Czwartek, 21 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-22"><div class="done-date"><span>Piątek, 22 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-23"><div class="done-date"><span>Sobota, 23 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-24"><div class="done-date"><span>Niedziela, 24 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-25"><div class="done-date"><span>Poniedziałek, 25 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-26"><div class="done-date"><span>Wtorek, 26 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-27"><div class="done-date"><span>Środa, 27 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-28"><div class="done-date"><span>Czwartek, 28 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-29"><div class="done-date"><span>Piątek, 29 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-30"><div class="done-date"><span>Sobota, 30 Maj 2026</span></div></div><div class="done-day-block" id="done-block-2026-05-31"><div class="done-date"><span>Niedziela, 31 Maj 2026</span></div></div></div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ================================================
+       data.js — zapis i odczyt danych z localStorage
+       ================================================ */
+
+    const KEYS = {
+      journal: 'dziennik-journal-v1',
+      todo:    'dziennik-todo-v1',
+      done:    'dziennik-done-v1',
+    };
+
+    let journalData = {};
+    let selectedKey = null;
+    let todoData    = [];
+    let doneData    = {};
+
+    function loadJournal() {
+      try { journalData = JSON.parse(localStorage.getItem(KEYS.journal)) || {}; }
+      catch (e) { journalData = {}; }
+    }
+
+    function saveJournal() {
+      localStorage.setItem(KEYS.journal, JSON.stringify(journalData));
+    }
+
+    function loadTodo() {
+      try { todoData = JSON.parse(localStorage.getItem(KEYS.todo)) || []; }
+      catch (e) { todoData = []; }
+      if (todoData.length === 0) {
+        todoData = [{ id: makeId(), title: 'Ogólne', open: true, items: [] }];
+      }
+    }
+
+    function saveTodo() {
+      localStorage.setItem(KEYS.todo, JSON.stringify(todoData));
+      syncTodo();
+    }
+
+    function loadDone() {
+      try { doneData = JSON.parse(localStorage.getItem(KEYS.done)) || {}; }
+      catch (e) { doneData = {}; }
+    }
+
+    function saveDone() {
+      localStorage.setItem(KEYS.done, JSON.stringify(doneData));
+      syncDone();
+    }
+
+    // Pomocnicze funkcje daty
+    const WEEKDAYS = ['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'];
+    const MONTHS   = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
+                      'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+
+    function todayKey() {
+      const d = new Date();
+      if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function dateKey(year, month, day) {
+      return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    }
+
+    function daysInMonth(year, month) {
+      return new Date(year, month, 0).getDate();
+    }
+
+    function formatDate(key) {
+      const date = new Date(key + 'T12:00:00');
+      return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+    }
+
+    function makeId() {
+      return Math.random().toString(36).slice(2, 9);
+    }
+
+    // Zwraca wszystkie potrzebne informacje o bieżącym dniu
+    function currentDate() {
+      const now = new Date();
+      if (now.getHours() < 4) now.setDate(now.getDate() - 1);
+      const year  = now.getFullYear();
+      const month = now.getMonth() + 1;
+      return {
+        year,
+        month,
+        today: now.getDate(),
+        total: daysInMonth(year, month),
+      };
+    }
+
+    /* ================================================
+       journal.js — kalendarz i stream dziennika
+       ================================================ */
+
+    let autosaveTimer = null;
+
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    function buildCalendar() {
+      const { year, month, today, total } = currentDate();
+      const grid  = document.getElementById('cal-grid');
+      grid.innerHTML = '';
+
+      for (let d = 1; d <= total; d++) {
+        const key = dateKey(year, month, d);
+        const btn = document.createElement('button');
+        btn.className   = 'cal-btn';
+        btn.textContent = d;
+        btn.dataset.day = d;
+        if (d === today) btn.classList.add('today', 'selected');
+        if (journalData[key] && journalData[key].text) btn.classList.add('has-entry');
+        btn.addEventListener('click', () => scrollToDay(key, btn));
+        grid.appendChild(btn);
+      }
+    }
+
+    function scrollToDay(key, calBtn) {
+      selectedKey = key;
+      const block  = document.getElementById('block-' + key);
+      const stream = document.getElementById('stream');
+      if (block && stream) {
+        const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+        stream.scrollBy({ top: diff, behavior: 'smooth' });
+      }
+
+      const doneBlock  = document.getElementById('done-block-' + key);
+      const doneStream = document.getElementById('done-stream');
+      if (doneBlock && doneStream) {
+        const diff = doneBlock.getBoundingClientRect().top - doneStream.getBoundingClientRect().top - 16;
+        doneStream.scrollBy({ top: diff, behavior: 'smooth' });
+      }
+
+      document.querySelectorAll('.cal-btn').forEach(b => b.classList.remove('selected'));
+      if (calBtn) {
+        calBtn.classList.add('selected');
+        if (parseInt(calBtn.dataset.day) === new Date().getDate()) calBtn.classList.add('today');
+      }
+    }
+
+    function buildStream() {
+      const { year, month, today, total } = currentDate();
+      const stream = document.getElementById('stream');
+      stream.innerHTML = '';
+
+      for (let d = 1; d <= total; d++) {
+        const key = dateKey(year, month, d);
+        if (d > today && !journalData[key]) continue;
+        if (!journalData[key]) journalData[key] = { text: '' };
+        stream.appendChild(buildDayBlock(key, d, today));
+      }
+    }
+
+    function buildDayBlock(key, dayNumber, todayNumber) {
+      const block = document.createElement('div');
+      block.className = 'day-block';
+      block.id = 'block-' + key;
+
+      const header = document.createElement('div');
+      header.className = 'day-header';
+
+      const dateLabel = document.createElement('span');
+      dateLabel.className   = 'day-date';
+      dateLabel.textContent = formatDate(key);
+      header.appendChild(dateLabel);
+
+      const textarea = document.createElement('textarea');
+      textarea.className   = 'day-textarea';
+      textarea.value       = journalData[key].text || '';
+      textarea.placeholder = (dayNumber === todayNumber) ? 'pisz...' : '';
+
+      textarea.addEventListener('input', function () {
+        autoResize(this);
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => {
+          scheduleSyncJournal(key, this.value);
+          const btn = document.querySelector(`.cal-btn[data-day="${dayNumber}"]`);
+          if (btn) btn.classList.toggle('has-entry', !!this.value);
+        }, 500);
+      });
+
+      block.appendChild(header);
+      block.appendChild(textarea);
+      requestAnimationFrame(() => autoResize(textarea));
+      return block;
+    }
+
+    function initScrollSync() {
+      const stream = document.getElementById('stream');
+      stream.addEventListener('scroll', function () {
+        let activeDay = null;
+        document.querySelectorAll('.day-block').forEach(block => {
+          if (block.getBoundingClientRect().top <= stream.getBoundingClientRect().top + 50) {
+            activeDay = block.id.replace('block-', '');
+            selectedKey = activeDay;
+          }
+        });
+        if (!activeDay) return;
+        const dayNumber = parseInt(activeDay.split('-')[2], 10);
+        document.querySelectorAll('.cal-btn').forEach(btn => {
+          btn.classList.toggle('selected', parseInt(btn.dataset.day) === dayNumber);
+        });
+      });
+    }
+
+    /* ================================================
+       todo.js — lista zadań
+       ================================================ */
+
+    const RARITY_PTS  = { common: 5, uncommon: 10, rare: 25, epic: 50, legendary: 100 };
+    const RARITIES    = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+
+    function ptsColor(pts) {
+      if (pts < 25)  return '#aaaaaa';
+      if (pts < 50)  return '#1e9e08';
+      if (pts < 100) return '#4a90d9';
+      if (pts < 200) return '#a335ee';
+      return                '#ff8000';
+    }
+    const undoHistory = [];
+
+    function saveUndo() {
+      undoHistory.push({
+        todo: JSON.parse(JSON.stringify(todoData)),
+        done: JSON.parse(JSON.stringify(doneData)),
+      });
+      if (undoHistory.length > 20) undoHistory.shift();
+    }
+
+    function undo() {
+      if (undoHistory.length === 0) return;
+      const snapshot = undoHistory.pop();
+      todoData = snapshot.todo; saveTodo(); buildTodo();
+      doneData = snapshot.done; saveDone(); buildDoneStream();
+    }
+
+    function buildTodo() {
+      const container = document.getElementById('todo-sections');
+      container.innerHTML = '';
+      todoData.forEach(section => container.appendChild(buildSection(section)));
+    }
+
+    function buildSection(section) {
+      const wrap = document.createElement('div');
+      wrap.className = 'todo-section';
+      wrap.id = 'section-' + section.id;
+
+      const header = document.createElement('div');
+      header.className = 'section-header';
+
+      const arrow = document.createElement('span');
+      arrow.className = 'section-arrow' + (section.open ? '' : ' closed');
+      arrow.textContent = '▾';
+
+      const title = document.createElement('span');
+      title.className       = 'section-title';
+      title.contentEditable = true;
+      title.textContent     = section.title;
+      title.addEventListener('blur', () => { section.title = title.textContent.trim() || section.title; saveTodo(); });
+      title.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); title.blur(); } });
+
+      const body = document.createElement('div');
+      body.className = 'section-body' + (section.open ? '' : ' hidden');
+
+      header.addEventListener('click', e => {
+        if (e.target === title) return;
+        section.open = !section.open;
+        saveTodo();
+        body.classList.toggle('hidden', !section.open);
+        arrow.classList.toggle('closed', !section.open);
+      });
+
+      header.appendChild(arrow);
+      header.appendChild(title);
+
+      // Dla projektów (nie Ogólne) — checkbox ukończenia i przycisk usunięcia
+      if (section.title !== 'Ogólne') {
+        const completeBtn = document.createElement('input');
+        completeBtn.type      = 'checkbox';
+        completeBtn.className = 'task-checkbox';
+        completeBtn.title     = 'oznacz projekt jako ukończony';
+        completeBtn.addEventListener('click', e => e.stopPropagation());
+        completeBtn.addEventListener('change', () => {
+          if (completeBtn.checked) completeSection(section);
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className   = 'task-delete';
+        deleteBtn.textContent = '×';
+        deleteBtn.title       = 'usuń projekt';
+        deleteBtn.style.opacity = '1';
+        deleteBtn.addEventListener('click', e => { e.stopPropagation(); deleteSection(section); });
+
+        header.appendChild(completeBtn);
+        header.appendChild(deleteBtn);
+      }
+
+      const taskList = document.createElement('div');
+      taskList.id = 'tasks-' + section.id;
+      section.items.forEach(item => taskList.appendChild(buildTaskItem(item, section)));
+
+      const addInput = document.createElement('input');
+      addInput.type        = 'text';
+      addInput.className   = 'add-task-input';
+      addInput.placeholder = 'dodaj...';
+      addInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && addInput.value.trim()) {
+          addTask(section, addInput.value.trim());
+          addInput.value = '';
+        }
+      });
+
+      body.appendChild(taskList);
+      body.appendChild(addInput);
+      wrap.appendChild(header);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    function buildTaskItem(item, section) {
+      const row = document.createElement('div');
+      row.className = 'task-item';
+      row.id = 'task-' + item.id;
+
+      const checkbox = document.createElement('input');
+      checkbox.type      = 'checkbox';
+      checkbox.className = 'task-checkbox';
+      checkbox.addEventListener('change', () => { if (checkbox.checked) completeTask(item, section); });
+
+      const dot = document.createElement('div');
+      dot.className = `rarity-dot dot-${item.rarity}`;
+      dot.title = item.rarity;
+
+      const text = document.createElement('span');
+      text.className       = `task-text rarity-${item.rarity}`;
+      text.contentEditable = true;
+      text.textContent     = item.text;
+      text.addEventListener('blur', () => { item.text = text.textContent.trim() || item.text; saveTodo(); });
+      text.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); text.blur(); } });
+
+      dot.addEventListener('click', () => {
+        saveUndo();
+        item.rarity    = RARITIES[(RARITIES.indexOf(item.rarity) + 1) % RARITIES.length];
+        saveTodo();
+        dot.className  = `rarity-dot dot-${item.rarity}`;
+        dot.title      = item.rarity;
+        text.className = `task-text rarity-${item.rarity}`;
+      });
+
+      const arrows = document.createElement('div');
+      arrows.className = 'task-arrows';
+
+      const arrowUp = document.createElement('button');
+      arrowUp.className = 'arrow-btn'; arrowUp.textContent = '▲';
+      arrowUp.addEventListener('click', () => moveTask(section, item.id, -1));
+
+      const arrowDown = document.createElement('button');
+      arrowDown.className = 'arrow-btn'; arrowDown.textContent = '▼';
+      arrowDown.addEventListener('click', () => moveTask(section, item.id, +1));
+
+      arrows.appendChild(arrowUp);
+      arrows.appendChild(arrowDown);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'task-delete'; deleteBtn.textContent = '×';
+      deleteBtn.addEventListener('click', () => { saveUndo(); section.items = section.items.filter(i => i.id !== item.id); saveTodo(); row.remove(); });
+
+      row.appendChild(checkbox);
+      row.appendChild(dot);
+      row.appendChild(text);
+      row.appendChild(arrows);
+      row.appendChild(deleteBtn);
+      return row;
+    }
+
+    function addTask(section, text) {
+      saveUndo();
+      const newItem = { id: makeId(), text, rarity: 'common' };
+      section.items.push(newItem);
+      saveTodo();
+      document.getElementById('tasks-' + section.id).appendChild(buildTaskItem(newItem, section));
+    }
+
+    function completeTask(item, section) {
+      saveUndo();
+      const key = selectedKey || todayKey();
+      if (!doneData[key]) doneData[key] = [];
+      const projectName = section.title !== 'Ogólne' ? section.title : null;
+      doneData[key].push({ text: item.text, rarity: item.rarity, project: projectName, pts: RARITY_PTS[item.rarity] || 1 });
+      saveDone();
+      section.items = section.items.filter(i => i.id !== item.id);
+      saveTodo();
+      buildDoneStream();
+
+      // Animacja: przekreślenie → znikanie → usunięcie z DOM
+      const row = document.getElementById('task-' + item.id);
+      if (!row) return;
+      row.classList.add('completing');
+      setTimeout(() => {
+        row.classList.add('removing');
+        setTimeout(() => row.remove(), 800);
+      }, 600);
+    }
+
+    function completeSection(section) {
+      saveUndo();
+      // Przenieś wszystkie niewykonane zadania do wykonanych
+      const key = selectedKey || todayKey();
+      if (!doneData[key]) doneData[key] = [];
+      section.items.forEach(item => {
+        doneData[key].push({ text: item.text, rarity: item.rarity, project: section.title, pts: RARITY_PTS[item.rarity] || 1 });
+      });
+      saveDone();
+      // Usuń sekcję
+      todoData = todoData.filter(s => s.id !== section.id);
+      saveTodo();
+      buildTodo();
+      buildDoneStream();
+    }
+
+    function deleteSection(section) {
+      saveUndo();
+      todoData = todoData.filter(s => s.id !== section.id);
+      saveTodo();
+      buildTodo();
+    }
+
+    function moveTask(section, itemId, direction) {
+      saveUndo();
+      const index    = section.items.findIndex(i => i.id === itemId);
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= section.items.length) return;
+      const temp              = section.items[index];
+      section.items[index]    = section.items[newIndex];
+      section.items[newIndex] = temp;
+      saveTodo();
+      const taskList = document.getElementById('tasks-' + section.id);
+      taskList.innerHTML = '';
+      section.items.forEach(item => taskList.appendChild(buildTaskItem(item, section)));
+    }
+
+    function addSection() {
+      saveUndo();
+      const newSection = { id: makeId(), title: 'Nowa sekcja', open: true, items: [] };
+      todoData.push(newSection);
+      saveTodo();
+      const sectionEl = buildSection(newSection);
+      document.getElementById('todo-sections').appendChild(sectionEl);
+      const title = sectionEl.querySelector('.section-title');
+      if (title) { title.focus(); document.execCommand('selectAll'); }
+    }
+
+    /* ================================================
+       done.js — historia wykonanych zadań
+       ================================================ */
+
+    function buildDoneStream() {
+      const container = document.getElementById('done-stream');
+      const scrollTop = container.scrollTop;
+      container.innerHTML = '';
+
+      const { year, month, today, total } = currentDate();
+
+      for (let d = 1; d <= total; d++) {
+        if (d > today) continue;
+        const key   = dateKey(year, month, d);
+        const tasks = doneData[key] || [];
+
+        const block = document.createElement('div');
+        block.className = 'done-day-block';
+        block.id = 'done-block-' + key;
+
+        const dateEl = document.createElement('div');
+        dateEl.className = 'done-date';
+
+        const dateLabel = document.createElement('span');
+        dateLabel.textContent = formatDate(key);
+        dateEl.appendChild(dateLabel);
+
+        const totalPts = tasks.reduce((sum, t) => sum + (t.pts || 0), 0);
+        if (totalPts > 0) {
+          const ptsEl = document.createElement('span');
+          ptsEl.textContent = '· ' + totalPts + ' pkt';
+          ptsEl.style.cssText = `margin-left: 8px; font-size: 13px; font-style: italic; color: ${ptsColor(totalPts)};`;
+          dateEl.appendChild(ptsEl);
+        }
+
+        block.appendChild(dateEl);
+
+        tasks.forEach((task, index) => {
+          const row  = document.createElement('div');
+          row.className = 'done-task';
+          const text = document.createElement('span');
+          text.className   = `done-task-text rarity-${task.rarity}`;
+          text.textContent = task.project ? `${task.text} (${task.project})` : task.text;
+          row.appendChild(text);
+          block.appendChild(row);
+
+          // Animuj tylko ostatnie zadanie dzisiejszego dnia (właśnie dodane)
+          if (key === todayKey() && index === tasks.length - 1) {
+            row.classList.add('appearing');
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => row.classList.remove('appearing'));
+            });
+          }
+        });
+
+        container.appendChild(block);
+      }
+
+      container.scrollTop = scrollTop;
+    }
+
+    /* ================================================
+       clock.js — cyfrowy zegar
+       ================================================ */
+
+    function updateClock() {
+      const now = new Date();
+      const el  = document.getElementById('clock');
+      if (el) el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function insertTime() {
+      const now  = new Date();
+      const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const key  = todayKey();
+      const ta   = document.querySelector('#block-' + key + ' .day-textarea');
+      if (!ta) return;
+      const needsNewline = ta.value.length > 0 && !ta.value.endsWith('\n');
+      ta.value += (needsNewline ? '\n' : '') + time + ' ';
+      journalData[key].text = ta.value;
+      saveJournal();
+      autoResize(ta);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = ta.value.length;
+    }
+
+    /* ================================================
+       backup.js — eksport i import danych
+       ================================================ */
+
+    function exportData() {
+      // Zbierz wszystkie dane w jeden obiekt
+      const backup = {
+        version:   1,
+        exportedAt: new Date().toISOString(),
+        journal:   journalData,
+        todo:      todoData,
+        done:      doneData,
+      };
+
+      // Utwórz plik JSON i pobierz go
+      const json     = JSON.stringify(backup, null, 2);
+      const blob     = new Blob([json], { type: 'application/json' });
+      const url      = URL.createObjectURL(blob);
+      const a        = document.createElement('a');
+      const date     = new Date().toISOString().slice(0, 10);
+      a.href         = url;
+      a.download     = `dziennik-backup-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const backup = JSON.parse(e.target.result);
+
+          // Sprawdź czy plik wygląda jak nasz backup
+          if (!backup.journal || !backup.todo || !backup.done) {
+            alert('Nieprawidłowy plik backupu.');
+            return;
+          }
+
+          // Zapytaj przed nadpisaniem
+          if (!confirm('Czy na pewno chcesz wczytać backup? Aktualne dane zostaną zastąpione.')) return;
+
+          // Wczytaj dane i odbuduj widok
+          journalData = backup.journal;
+          todoData    = backup.todo;
+          doneData    = backup.done;
+
+          saveJournal();
+          saveTodo();
+          saveDone();
+
+          buildCalendar();
+          buildStream();
+          buildTodo();
+          buildDoneStream();
+
+          // Przewiń do dzisiaj
+          setTimeout(() => {
+            const key = todayKey();
+            const block  = document.getElementById('block-' + key);
+            const stream = document.getElementById('stream');
+            if (block && stream) {
+              const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+              stream.scrollBy({ top: diff, behavior: 'instant' });
+            }
+            const doneBlock  = document.getElementById('done-block-' + key);
+            const doneStream = document.getElementById('done-stream');
+            if (doneBlock && doneStream) {
+              const diff = doneBlock.getBoundingClientRect().top - doneStream.getBoundingClientRect().top - 16;
+              doneStream.scrollBy({ top: diff, behavior: 'instant' });
+            }
+          }, 100);
+
+        } catch (err) {
+          alert('Błąd podczas wczytywania pliku.');
+        }
+      };
+      reader.readAsText(file);
+
+      // Zresetuj input żeby można było wczytać ten sam plik ponownie
+      event.target.value = '';
+    }
+
+    /* ================================================
+       main.js — inicjalizacja
+       ================================================ */
+
+    loadJournal();
+    loadTodo();
+    loadDone();
+    selectedKey = todayKey();
+
+    buildCalendar();
+    buildStream();
+    buildTodo();
+    buildDoneStream();
+    updateClock();
+    setInterval(updateClock, 10000);
+    initScrollSync();
+
+    setTimeout(() => {
+      const key = todayKey();
+
+      const block  = document.getElementById('block-' + key);
+      const stream = document.getElementById('stream');
+      if (block && stream) {
+        const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+        stream.scrollBy({ top: diff, behavior: 'instant' });
+      }
+
+      const doneBlock  = document.getElementById('done-block-' + key);
+      const doneStream = document.getElementById('done-stream');
+      if (doneBlock && doneStream) {
+        const diff = doneBlock.getBoundingClientRect().top - doneStream.getBoundingClientRect().top - 16;
+        doneStream.scrollBy({ top: diff, behavior: 'instant' });
+      }
+    }, 100);
+
+    function toggleCol(colClass) {
+      const col = document.querySelector('.' + colClass);
+      if (col) col.classList.toggle('collapsed');
+    }
+
+    /* ================================================
+       supabase.js — auth i synchronizacja
+       ================================================ */
+
+    const SUPABASE_URL = 'https://oypcxvvlrgoeugtnwzpr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_bcLT02UuG5OkUXB4bKaLqg_CguRWD4a';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUser = null;
+    let syncTimer = null;
+
+    function setSyncDot(state) {
+      const dot = document.getElementById('sync-dot');
+      if (!dot) return;
+      dot.className = 'sync-dot ' + (state || '');
+    }
+
+    const HARDCODED_USER_ID = '00000000-0000-0000-0000-000000000001';
+    const PASSWORD = 'dupa';
+
+    function checkPassword() {
+      const val = document.getElementById('password-input').value;
+      if (val === PASSWORD) {
+        currentUser = { id: HARDCODED_USER_ID };
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('user-info').textContent = '';
+        loadFromSupabase();
+        localStorage.setItem('auth', '1');
+      } else {
+        document.getElementById('auth-error').textContent = 'Złe hasło';
+      }
+    }
+
+    function signOut() {
+      currentUser = null;
+      localStorage.removeItem('auth');
+      document.getElementById('auth-screen').style.display = 'flex';
+      document.getElementById('user-info').textContent = '';
+    }
+
+    function scheduleSyncJournal(key, value) {
+      journalData[key] = journalData[key] || {};
+      journalData[key].text = value;
+      saveJournal();
+      if (!currentUser) return;
+      clearTimeout(syncTimer);
+      setSyncDot('syncing');
+      syncTimer = setTimeout(() => syncJournalEntry(key, value), 1500);
+    }
+
+    async function syncJournalEntry(date, content) {
+      if (!currentUser) return;
+      try {
+        const { error } = await sb.from('journal').upsert(
+          { user_id: currentUser.id, date, content },
+          { onConflict: 'user_id,date' }
+        );
+        setSyncDot(error ? 'error' : 'synced');
+        setTimeout(() => setSyncDot(''), 3000);
+      } catch(e) { setSyncDot('error'); }
+    }
+
+    async function syncTodo() {
+      if (!currentUser) return;
+      setSyncDot('syncing');
+      try {
+        const { error } = await sb.from('todos').upsert(
+          { user_id: currentUser.id, data: JSON.stringify(todoData) },
+          { onConflict: 'user_id' }
+        );
+        setSyncDot(error ? 'error' : 'synced');
+        setTimeout(() => setSyncDot(''), 3000);
+      } catch(e) { setSyncDot('error'); }
+    }
+
+    async function syncDone() {
+      if (!currentUser) return;
+      setSyncDot('syncing');
+      try {
+        const { error } = await sb.from('done').upsert(
+          { user_id: currentUser.id, data: JSON.stringify(doneData) },
+          { onConflict: 'user_id' }
+        );
+        setSyncDot(error ? 'error' : 'synced');
+        setTimeout(() => setSyncDot(''), 3000);
+      } catch(e) { setSyncDot('error'); }
+    }
+
+    async function loadFromSupabase() {
+      if (!currentUser) return;
+      setSyncDot('syncing');
+      try {
+        // Journal
+        const { data: jRows } = await sb.from('journal').select('date,content').eq('user_id', currentUser.id);
+        if (jRows && jRows.length > 0) {
+          jRows.forEach(r => { journalData[r.date] = { text: r.content }; });
+          buildStream();
+        }
+        // Todos
+        const { data: tRows } = await sb.from('todos').select('data').eq('user_id', currentUser.id).single();
+        if (tRows && tRows.data) {
+          todoData = JSON.parse(tRows.data);
+          buildTodo();
+        }
+        // Done
+        const { data: dRows } = await sb.from('done').select('data').eq('user_id', currentUser.id).single();
+        if (dRows && dRows.data) {
+          doneData = JSON.parse(dRows.data);
+          buildDoneStream();
+        }
+        setSyncDot('synced');
+        setTimeout(() => setSyncDot(''), 3000);
+      } catch(e) { setSyncDot('error'); }
+    }
+
+    function initAuth() {
+      if (localStorage.getItem('auth') === '1') {
+        currentUser = { id: HARDCODED_USER_ID };
+        document.getElementById('auth-screen').style.display = 'none';
+        loadFromSupabase();
+      }
+    }
+
+    initAuth();
+  </script>
+
+
+
+</body></html>
