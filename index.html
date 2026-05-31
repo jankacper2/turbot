@@ -496,54 +496,9 @@
     .done-task-text.rarity-epic      { color: #a335ee; }
     .done-task-text.rarity-legendary { color: #ff8000; }
 
-    /* ================================================
-       auth — ekran logowania
-       ================================================ */
-    #auth-screen {
-      position: fixed; inset: 0; z-index: 1000;
-      background: #f2ede4;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 20px;
-    }
-    #auth-screen h1 {
-      font-family: 'Libre Baskerville', serif;
-      font-size: 22px; color: rgba(43,43,43,0.7);
-      font-weight: normal;
-    }
-    #btn-login {
-      font-family: 'Patrick Hand', cursive;
-      font-size: 15px; padding: 10px 24px;
-      background: #2b2b2b; color: #f2ede4;
-      border: none; border-radius: 6px; cursor: pointer;
-    }
-    #btn-login:hover { background: #444; }
-    #auth-error { font-family: 'Patrick Hand', cursive; color: rgba(200,60,60,0.8); font-size: 13px; }
-    #user-info {
-      font-family: 'Patrick Hand', cursive;
-      font-size: 12px; color: rgba(242,237,228,0.6);
-      cursor: pointer;
-    }
-    #user-info:hover { color: rgba(242,237,228,0.9); }
-    .sync-dot {
-      display: inline-block; width: 7px; height: 7px;
-      border-radius: 50%; background: rgba(242,237,228,0.3);
-      margin-left: 6px; vertical-align: middle;
-      transition: background 0.3s;
-    }
-    .sync-dot.syncing { background: #f0c040; }
-    .sync-dot.synced  { background: #60c060; }
-    .sync-dot.error   { background: #e05050; }
   </style>
 </head>
 <body>
-
-  <div id="auth-screen">
-    <h1>Dziennik</h1>
-    <input id="password-input" type="password" placeholder="hasło" style="font-family:'Patrick Hand',cursive;font-size:16px;padding:10px 16px;border:1px solid rgba(43,43,43,0.2);border-radius:6px;background:#f2ede4;outline:none;text-align:center;" onkeydown="if(event.key==='Enter')checkPassword()">
-    <button id="btn-login" onclick="checkPassword()">Wejdź</button>
-    <div id="auth-error"></div>
-  </div>
 
   <header>
     <span id="header-title">MAJ 2026</span>
@@ -1283,27 +1238,6 @@
     }
 
     const HARDCODED_USER_ID = '00000000-0000-0000-0000-000000000001';
-    const PASSWORD = 'dupa';
-
-    function checkPassword() {
-      const val = document.getElementById('password-input').value;
-      if (val === PASSWORD) {
-        currentUser = { id: HARDCODED_USER_ID };
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('user-info').textContent = '';
-        loadFromSupabase();
-        localStorage.setItem('auth', '1');
-      } else {
-        document.getElementById('auth-error').textContent = 'Złe hasło';
-      }
-    }
-
-    function signOut() {
-      currentUser = null;
-      localStorage.removeItem('auth');
-      document.getElementById('auth-screen').style.display = 'flex';
-      document.getElementById('user-info').textContent = '';
-    }
 
     function scheduleSyncJournal(key, value) {
       journalData[key] = journalData[key] || {};
@@ -1381,11 +1315,8 @@
     }
 
     function initAuth() {
-      if (localStorage.getItem('auth') === '1') {
-        currentUser = { id: HARDCODED_USER_ID };
-        document.getElementById('auth-screen').style.display = 'none';
-        loadFromSupabase();
-      }
+      currentUser = { id: HARDCODED_USER_ID };
+      loadFromSupabase();
     }
 
     initAuth();
