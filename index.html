@@ -51,6 +51,20 @@
       font-style: italic;
     }
 
+    .sync-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(242,237,228,0.3);
+      margin-left: 6px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+    .sync-dot.syncing { background: #f0c040; }
+    .sync-dot.synced  { background: #60c060; }
+    .sync-dot.error   { background: #e05050; }
+
     #btn-undo {
       position: absolute;
       left: 1rem;
