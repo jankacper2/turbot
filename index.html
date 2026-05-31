@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dziennik</title>
-  <link href="1008am_files/css2.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
   <style>
     /* ================================================
-       base.css — reset, layout, kolumny, header
+       SEKCJA: reset, layout, kolumny, header
        ================================================ */
 
     * {
@@ -41,14 +41,6 @@
       text-transform: uppercase;
       flex-shrink: 0;
       position: relative;
-    }
-
-    #save-status {
-      position: absolute;
-      right: 1rem;
-      font-size: 11px;
-      opacity: 0.5;
-      font-style: italic;
     }
 
     .sync-dot {
@@ -85,8 +77,45 @@
       display: flex;
       flex: 1;
       overflow: hidden;
+      padding-bottom: 52px;
     }
 
+    /* Dolny pasek nawigacyjny (widoczny zawsze) */
+    .mbar-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: rgba(242,237,228,0.45);
+      font-family: 'Nunito', sans-serif;
+      font-size: 9px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    .mbar-btn i { font-size: 20px; }
+    .mbar-btn.active { color: rgba(242,237,228,1); }
+
+    .mbar-clock {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: none;
+      border: none;
+      color: rgba(242,237,228,0.85);
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ================================================
+       MEDIA QUERY — layout mobilny (≤768px)
+       ================================================ */
     @media (max-width: 768px) {
       html, body {
         height: 100% !important;
@@ -97,7 +126,7 @@
         flex-direction: column;
         overflow-y: scroll;
         overflow-x: hidden;
-        height: calc(100vh - 40px);
+        height: calc(100vh - 40px - 52px);
         scroll-snap-type: y mandatory;
       }
 
@@ -107,8 +136,8 @@
       .col-done {
         width: 100% !important;
         flex: none;
-        height: calc(100vh - 40px);
-        min-height: calc(100vh - 40px);
+        height: calc(100vh - 40px - 52px);
+        min-height: calc(100vh - 40px - 52px);
         border-right: none;
         border-bottom: 1px solid rgba(43, 43, 43, 0.1);
         overflow: hidden;
@@ -124,7 +153,7 @@
       }
 
       .col-inner {
-        height: calc(100vh - 80px);
+        height: calc(100vh - 80px - 52px);
         max-height: none !important;
         overflow-y: auto;
       }
@@ -133,7 +162,7 @@
         grid-template-columns: repeat(5, 1fr) !important;
         gap: 2px;
         padding: 6px 8px;
-        max-width: 85%;
+        max-width: 90%;
         margin: 0 auto;
       }
 
@@ -144,8 +173,7 @@
       }
 
       #clock {
-        font-size: 24px;
-        padding: 10px 12px;
+        display: none;
       }
     }
 
@@ -205,7 +233,7 @@
     .collapsed .toggle-arrow { transform: rotate(-90deg); }
 
     /* ================================================
-       journal.css — kalendarz, zegar, stream dziennika
+       SEKCJA: kalendarz, zegar, stream dziennika
        ================================================ */
 
     #cal-grid {
@@ -234,7 +262,7 @@
     .cal-btn.today.selected { background: #2b2b2b; }
 
     #clock {
-      font-family: Futura, 'Century Gothic', sans-serif;
+      font-family: 'Nunito', sans-serif;
       font-size: 32px;
       font-weight: 300;
       letter-spacing: 0.1em;
@@ -294,7 +322,7 @@
     }
 
     /* ================================================
-       todo.css — lista zadań
+       SEKCJA: lista zadań
        ================================================ */
 
     #todo-inner { padding: 12px; }
@@ -479,7 +507,7 @@
     #btn-add-section:hover { color: rgba(43, 43, 43, 0.6); }
 
     /* ================================================
-       done.css — historia wykonanych zadań
+       SEKCJA: historia wykonanych zadań
        ================================================ */
 
     #done-stream {
@@ -605,20 +633,39 @@
       done:    'dziennik-done-v1',
     };
 
+    /* ================================================
+       CONFIG — wszystkie ustawienia w jednym miejscu
+       ================================================ */
+    const CONFIG = {
+      // Supabase
+      supabaseUrl:  'https://oypcxvvlrgoeugtnwzpr.supabase.co',
+      supabaseKey:  'sb_publishable_bcLT02UuG5OkUXB4bKaLqg_CguRWD4a',
+      userId:       '00000000-0000-0000-0000-000000000001',
+
+      // Godzina początku nowego dnia (0-23)
+      dayStartHour: 4,
+
+      // Punkty za ukończenie zadania wg rzadkości
+      rarityPts: { common: 5, uncommon: 10, rare: 25, epic: 50, legendary: 100 },
+    };
+
     let journalData = {};
     let selectedKey = null;
     let todoData    = [];
     let doneData    = {};
 
+    // Wczytuje wpisy dziennika z localStorage do zmiennej journalData
     function loadJournal() {
       try { journalData = JSON.parse(localStorage.getItem(KEYS.journal)) || {}; }
       catch (e) { journalData = {}; }
     }
 
+    // Zapisuje wpisy dziennika z journalData do localStorage
     function saveJournal() {
       localStorage.setItem(KEYS.journal, JSON.stringify(journalData));
     }
 
+    // Wczytuje listę zadań z localStorage do zmiennej todoData
     function loadTodo() {
       try { todoData = JSON.parse(localStorage.getItem(KEYS.todo)) || []; }
       catch (e) { todoData = []; }
@@ -627,16 +674,19 @@
       }
     }
 
+    // Zapisuje zadania do localStorage i synchronizuje z Supabase
     function saveTodo() {
       localStorage.setItem(KEYS.todo, JSON.stringify(todoData));
       syncTodo();
     }
 
+    // Wczytuje wykonane zadania z localStorage do zmiennej doneData
     function loadDone() {
       try { doneData = JSON.parse(localStorage.getItem(KEYS.done)) || {}; }
       catch (e) { doneData = {}; }
     }
 
+    // Zapisuje wykonane zadania do localStorage i synchronizuje z Supabase
     function saveDone() {
       localStorage.setItem(KEYS.done, JSON.stringify(doneData));
       syncDone();
@@ -647,33 +697,39 @@
     const MONTHS   = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
                       'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
+    // Zwraca klucz daty w formacie YYYY-MM-DD uwzględniając że nowy dzień zaczyna się o CONFIG.dayStartHour
     function todayKey() {
       const d = new Date();
-      if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+      if (d.getHours() < CONFIG.dayStartHour) d.setDate(d.getDate() - 1);
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
+    // Tworzy klucz daty YYYY-MM-DD z podanych wartości
     function dateKey(year, month, day) {
       return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     }
 
+    // Zwraca liczbę dni w danym miesiącu
     function daysInMonth(year, month) {
       return new Date(year, month, 0).getDate();
     }
 
+    // Formatuje klucz daty (YYYY-MM-DD) do czytelnej polskiej nazwy np. "Poniedziałek, 1 Czerwiec 2026"
     function formatDate(key) {
       const date = new Date(key + 'T12:00:00');
       return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
     }
 
+    // Generuje losowy unikalny identyfikator dla zadania
     function makeId() {
       return Math.random().toString(36).slice(2, 9);
     }
 
     // Zwraca wszystkie potrzebne informacje o bieżącym dniu
+    // Zwraca obiekt z aktualnym rokiem, miesiącem, dniem i liczbą dni w miesiącu (z uwzględnieniem dayStartHour)
     function currentDate() {
       const now = new Date();
-      if (now.getHours() < 4) now.setDate(now.getDate() - 1);
+      if (now.getHours() < CONFIG.dayStartHour) now.setDate(now.getDate() - 1);
       const year  = now.getFullYear();
       const month = now.getMonth() + 1;
       return {
@@ -690,11 +746,13 @@
 
     let autosaveTimer = null;
 
+    // Dopasowuje wysokość textarea do jej zawartości (auto-grow)
     function autoResize(textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = textarea.scrollHeight + 'px';
     }
 
+    // Buduje siatkę kalendarza na bieżący miesiąc i zaznacza dzisiejszy dzień
     function buildCalendar() {
       const { year, month, today, total } = currentDate();
       const grid  = document.getElementById('cal-grid');
@@ -722,6 +780,7 @@
       }
     }
 
+    // Scrolluje dziennik i kolumnę "wykonane" do podanego dnia; ustawia selectedKey i zaznaczenie w kalendarzu
     function scrollToDay(key, calBtn) {
       selectedKey = key;
       const block  = document.getElementById('block-' + key);
@@ -745,6 +804,7 @@
       }
     }
 
+    // Buduje lub odbudowuje cały strumień dziennika (wszystkie dni miesiąca)
     function buildStream() {
       const { year, month, today, total } = currentDate();
       const stream = document.getElementById('stream');
@@ -758,6 +818,7 @@
       }
     }
 
+    // Tworzy pojedynczy blok dnia w dzienniku (data + textarea) i podpina autosave
     function buildDayBlock(key, dayNumber, todayNumber) {
       const block = document.createElement('div');
       block.className = 'day-block';
@@ -792,6 +853,7 @@
       return block;
     }
 
+    // Śledzi scroll dziennika i aktualizuje selectedKey oraz zaznaczenie w kalendarzu na bieżąco
     function initScrollSync() {
       const stream = document.getElementById('stream');
       stream.addEventListener('scroll', function () {
@@ -814,9 +876,10 @@
        todo.js — lista zadań
        ================================================ */
 
-    const RARITY_PTS  = { common: 5, uncommon: 10, rare: 25, epic: 50, legendary: 100 };
+    const RARITY_PTS = CONFIG.rarityPts;
     const RARITIES    = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
+    // Zwraca kolor CSS odpowiadający liczbie punktów (im więcej tym rzadszy kolor)
     function ptsColor(pts) {
       if (pts < 25)  return '#aaaaaa';
       if (pts < 50)  return '#1e9e08';
@@ -826,6 +889,7 @@
     }
     const undoHistory = [];
 
+    // Zapisuje aktualny stan danych do bufora cofania (undo)
     function saveUndo() {
       undoHistory.push({
         todo: JSON.parse(JSON.stringify(todoData)),
@@ -834,6 +898,7 @@
       if (undoHistory.length > 20) undoHistory.shift();
     }
 
+    // Przywraca poprzedni stan danych z bufora cofania
     function undo() {
       if (undoHistory.length === 0) return;
       const snapshot = undoHistory.pop();
@@ -841,12 +906,14 @@
       doneData = snapshot.done; saveDone(); buildDoneStream();
     }
 
+    // Buduje lub odbudowuje całą listę zadań "do zrobienia"
     function buildTodo() {
       const container = document.getElementById('todo-sections');
       container.innerHTML = '';
       todoData.forEach(section => container.appendChild(buildSection(section)));
     }
 
+    // Tworzy element DOM dla jednej sekcji (projektu) w liście zadań
     function buildSection(section) {
       const wrap = document.createElement('div');
       wrap.className = 'todo-section';
@@ -924,6 +991,7 @@
       return wrap;
     }
 
+    // Tworzy element DOM dla pojedynczego zadania wraz z checkboxem, edycją i przyciskami
     function buildTaskItem(item, section) {
       const row = document.createElement('div');
       row.className = 'task-item';
@@ -980,6 +1048,7 @@
       return row;
     }
 
+    // Dodaje nowe zadanie do podanej sekcji
     function addTask(section, text) {
       saveUndo();
       const newItem = { id: makeId(), text, rarity: 'common' };
@@ -988,6 +1057,7 @@
       document.getElementById('tasks-' + section.id).appendChild(buildTaskItem(newItem, section));
     }
 
+    // Przenosi zadanie do listy wykonanych (do selectedKey lub dzisiaj) z animacją
     function completeTask(item, section) {
       saveUndo();
       const key = selectedKey || todayKey();
@@ -1009,6 +1079,7 @@
       }, 600);
     }
 
+    // Przenosi wszystkie zadania z sekcji do wykonanych naraz
     function completeSection(section) {
       saveUndo();
       // Przenieś wszystkie niewykonane zadania do wykonanych
@@ -1025,6 +1096,7 @@
       buildDoneStream();
     }
 
+    // Usuwa całą sekcję wraz z zadaniami (po potwierdzeniu)
     function deleteSection(section) {
       saveUndo();
       todoData = todoData.filter(s => s.id !== section.id);
@@ -1032,6 +1104,7 @@
       buildTodo();
     }
 
+    // Przesuwa zadanie w górę lub dół w obrębie sekcji
     function moveTask(section, itemId, direction) {
       saveUndo();
       const index    = section.items.findIndex(i => i.id === itemId);
@@ -1046,6 +1119,7 @@
       section.items.forEach(item => taskList.appendChild(buildTaskItem(item, section)));
     }
 
+    // Dodaje nową sekcję (projekt) do listy zadań
     function addSection() {
       saveUndo();
       const newSection = { id: makeId(), title: 'Nowa sekcja', open: true, items: [] };
@@ -1061,6 +1135,7 @@
        done.js — historia wykonanych zadań
        ================================================ */
 
+    // Buduje lub odbudowuje widok wykonanych zadań pogrupowanych po dniach
     function buildDoneStream() {
       const container = document.getElementById('done-stream');
       const scrollTop = container.scrollTop;
@@ -1122,12 +1197,14 @@
        clock.js — cyfrowy zegar
        ================================================ */
 
+    // Aktualizuje wyświetlany czas na zegarku w kolumnie kalendarza
     function updateClock() {
       const now = new Date();
       const el  = document.getElementById('clock');
       if (el) el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
+    // Wstawia aktualną godzinę do dziennika i na mobile przenosi do widoku dziennika
     function insertTimeAndGo() {
       insertTime();
       if (window.innerWidth <= 768) {
@@ -1148,6 +1225,7 @@
       }
     }
 
+    // Wstawia aktualną godzinę do textarea dzisiejszego dnia w dzienniku
     function insertTime() {
       const now  = new Date();
       const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -1164,9 +1242,10 @@
     }
 
     /* ================================================
-       backup.js — eksport i import danych
+       SEKCJA: eksport i import danych
        ================================================ */
 
+    // Eksportuje wszystkie dane (dziennik, todo, wykonane) do pliku JSON
     function exportData() {
       // Zbierz wszystkie dane w jeden obiekt
       const backup = {
@@ -1189,6 +1268,7 @@
       URL.revokeObjectURL(url);
     }
 
+    // Importuje dane z pliku JSON i nadpisuje bieżący stan
     function importData(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1283,15 +1363,17 @@
       }
     }, 100);
 
+    // Zwija lub rozwija kolumnę po kliknięciu w jej nagłówek
     function toggleCol(colClass) {
       const col = document.querySelector('.' + colClass);
       if (col) col.classList.toggle('collapsed');
     }
 
     /* ================================================
-       supabase.js — auth i synchronizacja
+       SEKCJA: Supabase — synchronizacja danych
        ================================================ */
 
+    // Otwiera lub zamyka menu ustawień (eksport/import) w headerze
     function toggleSettings() {
       const menu = document.getElementById('settings-menu');
       menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
@@ -1303,21 +1385,21 @@
       }
     });
 
-        const SUPABASE_URL = 'https://oypcxvvlrgoeugtnwzpr.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_bcLT02UuG5OkUXB4bKaLqg_CguRWD4a';
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const sb = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
 
     let currentUser = null;
     let syncTimer = null;
 
+    // Ustawia kolor kropki synchronizacji: syncing=żółta, synced=zielona, error=czerwona, brak=szara
     function setSyncDot(state) {
       const dot = document.getElementById('sync-dot');
       if (!dot) return;
       dot.className = 'sync-dot ' + (state || '');
     }
 
-    const HARDCODED_USER_ID = '00000000-0000-0000-0000-000000000001';
+    const HARDCODED_USER_ID = CONFIG.userId;
 
+    // Zapisuje wpis dziennika lokalnie i po 1.5s wysyła do Supabase (debounce żeby nie wysyłać każdej litery)
     function scheduleSyncJournal(key, value) {
       journalData[key] = journalData[key] || {};
       journalData[key].text = value;
@@ -1328,6 +1410,7 @@
       syncTimer = setTimeout(() => syncJournalEntry(key, value), 1500);
     }
 
+    // Wysyła pojedynczy wpis dziennika do Supabase (upsert po user_id + date)
     async function syncJournalEntry(date, content) {
       if (!currentUser) return;
       try {
@@ -1340,6 +1423,7 @@
       } catch(e) { setSyncDot('error'); }
     }
 
+    // Wysyła całą listę zadań do Supabase jako JSON (upsert po user_id)
     async function syncTodo() {
       if (!currentUser) return;
       setSyncDot('syncing');
@@ -1353,6 +1437,7 @@
       } catch(e) { setSyncDot('error'); }
     }
 
+    // Wysyła wykonane zadania do Supabase jako JSON (upsert po user_id)
     async function syncDone() {
       if (!currentUser) return;
       setSyncDot('syncing');
@@ -1366,6 +1451,7 @@
       } catch(e) { setSyncDot('error'); }
     }
 
+    // Pobiera wszystkie dane z Supabase i aktualizuje widok; wywoływana przy starcie
     async function loadFromSupabase() {
       if (!currentUser) return;
       setSyncDot('syncing');
@@ -1402,6 +1488,7 @@
       } catch(e) { setSyncDot('error'); }
     }
 
+    // Inicjalizuje użytkownika (hardcoded ID) i ładuje dane z Supabase
     function initAuth() {
       currentUser = { id: HARDCODED_USER_ID };
       loadFromSupabase();
@@ -1409,7 +1496,54 @@
 
     initAuth();
 
-    // URL param view mode: ?v=journal | ?v=todo | ?v=done | ?v=cal
+    // Mobile bottom bar
+    const mbarViews = { cal: 'col-cal', journal: 'col-journal', todo: 'col-todo', done: 'col-done' };
+    let mbarActive = 'cal';
+
+    // Na mobile scrolluje layout do wybranego widoku (cal/journal/todo/done) i aktualizuje aktywny przycisk paska
+    function mbarGo(view) {
+      if (window.innerWidth > 768) return;
+      mbarActive = view;
+      document.querySelectorAll('.mbar-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('mbar-' + view);
+      if (btn) btn.classList.add('active');
+      const layout = document.querySelector('.layout');
+      const col = document.querySelector('.' + mbarViews[view]);
+      if (layout && col) layout.scrollTo({ top: col.offsetTop, behavior: 'smooth' });
+      if (view === 'journal') {
+        setTimeout(() => {
+          const key = todayKey();
+          const block = document.getElementById('block-' + key);
+          const stream = document.getElementById('stream');
+          if (block && stream) {
+            const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+            stream.scrollBy({ top: diff, behavior: 'instant' });
+          }
+        }, 350);
+      }
+    }
+
+    // Kliknięcie zegara w pasku: wstawia godzinę do dziennika i przechodzi do widoku notes
+    function mbarClock() {
+      insertTime();
+      mbarGo('journal');
+    }
+
+    // Aktualizuje czas wyświetlany na zegarku w dolnym pasku mobilnym
+    function updateMbarClock() {
+      const el = document.getElementById('mbar-time');
+      if (!el) return;
+      const now = new Date();
+      el.textContent = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    }
+
+    if (window.innerWidth <= 768) {
+      updateMbarClock();
+      setInterval(updateMbarClock, 10000);
+    }
+
+        // URL param view mode: ?v=journal | ?v=todo | ?v=done | ?v=cal
+    // Czyta parametr URL ?v= i ukrywa wszystkie kolumny poza wybraną (np. ?v=journal pokazuje tylko dziennik)
     function applyViewMode() {
       const params = new URLSearchParams(window.location.search);
       const v = params.get('v');
@@ -1427,5 +1561,27 @@
   </script>
 
 
+
+  <div id="mobile-bar">
+    <button class="mbar-btn active" id="mbar-cal" onclick="mbarGo('cal')">
+      <i class="ti ti-calendar"></i>
+      <span>kal.</span>
+    </button>
+    <button class="mbar-btn" id="mbar-journal" onclick="mbarGo('journal')">
+      <i class="ti ti-notebook"></i>
+      <span>notes</span>
+    </button>
+    <button class="mbar-clock" id="mbar-clock" onclick="mbarClock()">
+      <span id="mbar-time">--:--</span>
+    </button>
+    <button class="mbar-btn" id="mbar-todo" onclick="mbarGo('todo')">
+      <i class="ti ti-check"></i>
+      <span>todo</span>
+    </button>
+    <button class="mbar-btn" id="mbar-done" onclick="mbarGo('done')">
+      <i class="ti ti-trophy"></i>
+      <span>done</span>
+    </button>
+  </div>
 
 </body></html>
