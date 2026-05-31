@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dziennik</title>
   <link href="1008am_files/css2.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Kalam&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
   <style>
@@ -20,7 +20,7 @@
     }
 
     body {
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       background: #f2ede4;
       color: #2b2b2b;
       height: 100vh;
@@ -71,9 +71,10 @@
       background: none;
       border: none;
       color: rgba(242, 237, 228, 0.7);
-      font-family: 'Patrick Hand', cursive;
-      font-size: 12px;
+      font-size: 18px;
       cursor: pointer;
+      line-height: 1;
+      padding: 0;
     }
 
     #btn-undo:hover {
@@ -123,6 +124,7 @@
       }
 
       .col-inner {
+        height: calc(100vh - 80px);
         max-height: none !important;
         overflow-y: auto;
       }
@@ -198,7 +200,7 @@
       aspect-ratio: 1;
       border: none;
       background: transparent;
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 13px;
       color: rgba(43, 43, 43, 0.5);
       cursor: pointer;
@@ -248,7 +250,7 @@
     .day-date {
       font-size: 15px;
       color: rgba(43, 43, 43, 0.65);
-      font-family: 'Libre Baskerville', serif;
+      font-family: 'Nunito', sans-serif;
       flex-shrink: 0;
     }
 
@@ -256,7 +258,7 @@
       width: 100%;
       border: none;
       background: transparent;
-      font-family: 'Kalam', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 17px;
       line-height: 1.7;
       color: rgba(43, 43, 43, 0.72);
@@ -302,7 +304,7 @@
     .section-arrow.closed { transform: rotate(-90deg); }
 
     .section-title {
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 14px;
       color: rgba(43, 43, 43, 0.6);
       outline: none;
@@ -355,7 +357,7 @@
     .task-checkbox:checked { background: #2b2b2b; border-color: #2b2b2b; }
 
     .task-text {
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 14px;
       color: rgba(43, 43, 43, 0.72);
       line-height: 1.4;
@@ -430,7 +432,7 @@
       border: none;
       border-bottom: 1px solid rgba(43, 43, 43, 0.1);
       background: transparent;
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 14px;
       color: rgba(43, 43, 43, 0.4);
       padding: 4px 0;
@@ -447,7 +449,7 @@
     #btn-add-section {
       background: none;
       border: none;
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 13px;
       color: rgba(43, 43, 43, 0.3);
       cursor: pointer;
@@ -476,7 +478,7 @@
     .done-date {
       font-size: 15px;
       color: rgba(43, 43, 43, 0.65);
-      font-family: 'Libre Baskerville', serif;
+      font-family: 'Nunito', sans-serif;
       margin-bottom: 6px;
     }
 
@@ -495,7 +497,7 @@
     }
 
     .done-task-text {
-      font-family: 'Patrick Hand', cursive;
+      font-family: 'Nunito', sans-serif;
       font-size: 15px;
       color: rgba(43, 43, 43, 0.6);
       text-decoration: line-through;
@@ -516,14 +518,18 @@
 
   <header>
     <span id="header-title">MAJ 2026</span>
-    <button id="btn-undo" onclick="undo()">↩ cofnij</button>
+    <button id="btn-undo" onclick="undo()" title="Cofnij">↩</button>
     <div style="position:absolute; right:1rem; display:flex; align-items:center; gap:12px;">
-      <button onclick="exportData()" style="background:none;border:none;color:rgba(242,237,228,0.6);font-family:'Patrick Hand',cursive;font-size:12px;cursor:pointer;">↓ eksport</button>
-      <label style="color:rgba(242,237,228,0.6);font-family:'Patrick Hand',cursive;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:normal;">
-        ↑ import
-        <input type="file" accept=".json" onchange="importData(event)" style="display:none;">
-      </label>
-      <span class="sync-dot" id="sync-dot"></span><span id="user-info" onclick="signOut()" title="Kliknij żeby się wylogować"></span>
+      <span class="sync-dot" id="sync-dot"></span>
+      <div style="position:relative;">
+        <button id="btn-settings" onclick="toggleSettings()" title="Ustawienia" style="background:none;border:none;color:rgba(242,237,228,0.7);font-size:18px;cursor:pointer;line-height:1;padding:0;">⚙</button>
+        <div id="settings-menu" style="display:none;position:absolute;right:0;top:28px;background:#3a3530;border-radius:8px;padding:8px 0;min-width:130px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+          <button onclick="exportData();toggleSettings()" style="display:block;width:100%;background:none;border:none;color:rgba(242,237,228,0.8);font-family:'Nunito',sans-serif;font-size:13px;padding:8px 16px;cursor:pointer;text-align:left;">↓ eksport</button>
+          <label style="display:block;width:100%;color:rgba(242,237,228,0.8);font-family:'Nunito',sans-serif;font-size:13px;padding:8px 16px;cursor:pointer;">↑ import
+            <input type="file" accept=".json" onchange="importData(event);toggleSettings()" style="display:none;">
+          </label>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1238,7 +1244,18 @@
        supabase.js — auth i synchronizacja
        ================================================ */
 
-    const SUPABASE_URL = 'https://oypcxvvlrgoeugtnwzpr.supabase.co';
+    function toggleSettings() {
+      const menu = document.getElementById('settings-menu');
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#btn-settings') && !e.target.closest('#settings-menu')) {
+        const menu = document.getElementById('settings-menu');
+        if (menu) menu.style.display = 'none';
+      }
+    });
+
+        const SUPABASE_URL = 'https://oypcxvvlrgoeugtnwzpr.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_bcLT02UuG5OkUXB4bKaLqg_CguRWD4a';
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
