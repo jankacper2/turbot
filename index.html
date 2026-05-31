@@ -77,10 +77,21 @@
       display: flex;
       flex: 1;
       overflow: hidden;
-      padding-bottom: 52px;
     }
 
     /* Dolny pasek nawigacyjny (widoczny zawsze) */
+    #mobile-bar {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 52px;
+      background: #3a3530;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 500;
+      padding: 0 4px;
+    }
+
     .mbar-btn {
       display: flex;
       flex-direction: column;
