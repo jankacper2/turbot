@@ -134,23 +134,24 @@
       }
 
       .layout {
-        flex-direction: column;
-        overflow-y: scroll;
-        overflow-x: hidden;
+        flex-direction: row;
+        overflow-x: scroll;
+        overflow-y: hidden;
         height: calc(100vh - 40px - 52px);
-        scroll-snap-type: y mandatory;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
       }
 
       .col-cal,
       .col-journal,
       .col-todo,
       .col-done {
-        width: 100% !important;
+        width: 100vw !important;
         flex: none;
         height: calc(100vh - 40px - 52px);
         min-height: calc(100vh - 40px - 52px);
-        border-right: none;
-        border-bottom: 1px solid rgba(43, 43, 43, 0.1);
+        border-right: 1px solid rgba(43, 43, 43, 0.1);
+        border-bottom: none;
         overflow: hidden;
         scroll-snap-align: start;
       }
@@ -159,14 +160,16 @@
       .col-journal.collapsed,
       .col-todo.collapsed,
       .col-done.collapsed {
-        height: auto;
-        min-height: auto;
+        width: 100vw !important;
+        height: calc(100vh - 40px - 52px);
+        min-height: calc(100vh - 40px - 52px);
       }
 
       .col-inner {
         height: calc(100vh - 80px - 52px);
         max-height: none !important;
         overflow-y: auto;
+        overflow-x: hidden;
       }
 
       #cal-grid {
@@ -782,10 +785,7 @@
           scrollToDay(key, btn);
           if (window.innerWidth <= 768) {
             const layout = document.querySelector('.layout');
-            const colJournal = document.querySelector('.col-journal');
-            if (layout && colJournal) {
-              layout.scrollTo({ top: colJournal.offsetTop, behavior: 'smooth' });
-            }
+            if (layout) layout.scrollTo({ left: 1 * window.innerWidth, behavior: 'smooth' });
           }
         });
         grid.appendChild(btn);
@@ -1513,6 +1513,7 @@
     let mbarActive = 'cal';
 
     // Na mobile scrolluje layout do wybranego widoku (cal/journal/todo/done) i aktualizuje aktywny przycisk paska
+    const mbarOrder = ['cal', 'journal', 'todo', 'done'];
     function mbarGo(view) {
       if (window.innerWidth > 768) return;
       mbarActive = view;
@@ -1520,8 +1521,8 @@
       const btn = document.getElementById('mbar-' + view);
       if (btn) btn.classList.add('active');
       const layout = document.querySelector('.layout');
-      const col = document.querySelector('.' + mbarViews[view]);
-      if (layout && col) layout.scrollTo({ top: col.offsetTop, behavior: 'smooth' });
+      const index = mbarOrder.indexOf(view);
+      if (layout && index !== -1) layout.scrollTo({ left: index * window.innerWidth, behavior: 'smooth' });
       if (view === 'journal') {
         setTimeout(() => {
           const key = todayKey();
