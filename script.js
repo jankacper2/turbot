@@ -56,7 +56,6 @@
           if (!local || remoteTime > localTime) {
             journalData[key] = {
               text: row.text || '',
-              energyEntries: row.energy_entries || [],
               updatedAt: row.updated_at,
             };
           }
@@ -87,7 +86,6 @@
             user_id: CONFIG.userId,
             date: key,
             text: day.text || '',
-            energy_entries: day.energyEntries || [],
             updated_at: nowIso,
           }, { onConflict: 'user_id,date' });
 
@@ -228,7 +226,7 @@
       }
     }
 
-    // Tworzy pojedynczy blok dnia (data + znaczki energii + textarea)
+    // Tworzy pojedynczy blok dnia (data + textarea)
     function buildDayBlock(key, dayNumber, todayNumber) {
       const block = document.createElement('div');
       block.className = 'day-block';
@@ -241,11 +239,6 @@
       dateLabel.className   = 'day-date';
       dateLabel.textContent = formatDate(key);
       header.appendChild(dateLabel);
-
-      // Wiersz na kolorowe znaczki energii (godzina [liczba])
-      const energyRow = document.createElement('div');
-      energyRow.className = 'energy-row';
-      energyRow.id = 'energy-row-' + key;
 
       const textarea = document.createElement('textarea');
       textarea.className   = 'day-textarea';
@@ -266,9 +259,7 @@
       });
 
       block.appendChild(header);
-      block.appendChild(energyRow);
       block.appendChild(textarea);
-      renderEnergyRow(key);
       requestAnimationFrame(() => autoResize(textarea));
       return block;
     }
@@ -303,14 +294,23 @@
         `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
-    // Kolory energii: 4 kolory przypisane do zakresów 0-1, 2-4, 5-8, 9-10
-    const ENERGY_COLORS = ['#f4511e','#f4511e','#fb8c00','#fb8c00','#fb8c00','#7cb342','#7cb342','#7cb342','#7cb342','#2e7d32','#2e7d32'];
+    // Buduje pasek postępu (używany tylko w podglądzie na suwaku), np. energia 7 -> ■■■■■■■□□□ [7]
+    function energyBar(energy) {
+      const filled = '■'.repeat(energy);
+      const empty  = '□'.repeat(10 - energy);
+      return `${filled}${empty} [${energy}]`;
+    }
 
-    // Aktualizuje cyfrę i jej kolor na suwaku
+    // Buduje wpis do dziennika: bateria pusta (0-4) albo pełna (5-10) + liczba w nawiasie
+    function energyEntry(time, energy) {
+      const battery = energy >= 5 ? '🔋' : '🪫';
+      return `${time} ${battery} [${energy}]`;
+    }
+
+    // Aktualizuje podgląd paska postępu na suwaku
     function updateEnergyDisplay(val) {
       const el = document.getElementById('energy-value-display');
-      el.textContent = val;
-      el.style.color = ENERGY_COLORS[parseInt(val)];
+      el.textContent = energyBar(parseInt(val));
     }
 
     // Otwiera popup z pytaniem o energię po kliknięciu zegara
@@ -334,44 +334,27 @@
       document.getElementById('energy-overlay').classList.remove('open');
     }
 
-    // Zapisuje godzinę i poziom energii jako osobny znaczek (nie dotyka textarea)
+    // Wstawia godzinę i pasek energii do textarea dzisiejszego dnia
     function confirmEnergy() {
       const now    = new Date();
       const time   = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
       const energy = parseInt(document.getElementById('energy-slider').value);
-      const color  = ENERGY_COLORS[energy];
       const key    = todayKey();
 
       closeEnergyPopup();
 
+      const ta = document.querySelector('#block-' + key + ' .day-textarea');
+      if (!ta) return;
+      const needsNewline = ta.value.length > 0 && !ta.value.endsWith('\n');
+      ta.value += (needsNewline ? '\n' : '') + `${energyEntry(time, energy)} `;
+
       journalData[key] = journalData[key] || {};
-      journalData[key].energyEntries = journalData[key].energyEntries || [];
-      journalData[key].energyEntries.push({ time, energy, color });
+      journalData[key].text = ta.value;
       saveJournal();
       syncDayToSupabase(key);
-      renderEnergyRow(key);
-
-      // Przenieś focus do textarea żeby można było od razu pisać
-      const ta = document.querySelector('#block-' + key + ' .day-textarea');
-      if (ta) {
-        ta.focus();
-        ta.selectionStart = ta.selectionEnd = ta.value.length;
-      }
-    }
-
-    // Renderuje kolorowe znaczki energii (godzina [liczba]) nad textarea danego dnia
-    function renderEnergyRow(key) {
-      const row = document.getElementById('energy-row-' + key);
-      if (!row) return;
-      const entries = (journalData[key] && journalData[key].energyEntries) || [];
-
-      row.innerHTML = '';
-      entries.forEach(({ time, energy, color }) => {
-        const badge = document.createElement('span');
-        badge.className = 'energy-badge';
-        badge.innerHTML = `<span class="eb-time">${time}</span> <span class="eb-energy" style="color:${color}">[${energy}]</span>`;
-        row.appendChild(badge);
-      });
+      autoResize(ta);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = ta.value.length;
     }
 
     // Zamknij popup klikając w tło
