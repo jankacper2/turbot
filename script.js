@@ -8,7 +8,16 @@
       userId: '00000000-0000-0000-0000-000000000001',
     };
 
-    const supabase = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+    let supabaseClient = null;
+    try {
+      if (window.supabase) {
+        supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+      } else {
+        console.warn('Biblioteka Supabase nie załadowała się — działam tylko lokalnie.');
+      }
+    } catch (e) {
+      console.warn('Nie udało się połączyć z Supabase — działam tylko lokalnie:', e);
+    }
 
     /* ================================================
        DANE — zapis i odczyt z localStorage + Supabase
@@ -29,8 +38,9 @@
     // Pobiera wszystkie dni z Supabase i scala je z danymi lokalnymi
     // (Supabase wygrywa tylko jeśli jego wersja jest nowsza niż lokalna)
     async function syncFromSupabase() {
+      if (!supabaseClient) return;
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
           .from('journal')
           .select('*')
           .eq('user_id', CONFIG.userId);
@@ -68,8 +78,10 @@
       day.updatedAt = nowIso;
       saveJournal();
 
+      if (!supabaseClient) return;
+
       try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
           .from('journal')
           .upsert({
             user_id: CONFIG.userId,
