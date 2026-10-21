@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dziennik</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ================================================
+       LOGOWANIE
+       ================================================ */
+
+    /* Domyślnie (zanim wiadomo czy jesteś zalogowany) chowamy aplikację, żeby nie mignęła */
+    header, .layout { display: none; }
+    body.authed header { display: flex; }
+    body.authed .layout { display: flex; }
+    body.authed #login-screen { display: none; }
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    #login-screen h1 {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-size: 20px;
+    }
+
+    #btn-github-login {
+      background: var(--accent);
+      color: var(--accent-fg);
+      border: none;
+      border-radius: 10px;
+      padding: 14px 28px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    #btn-github-login:hover { opacity: 0.85; }
+
+    /* ================================================
+       RESET I LAYOUT
+       ================================================ */
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Zmienne kolorów — zmieniane przez motywy */
+    :root {
+      --bg:        #ffffff;
+      --bg-side:   #e8e8e8;
+      --accent:    #1a1a1a;
+      --accent-fg: #ffffff;
+      --text:      rgba(26,26,26,0.75);
+      --text-dim:  rgba(26,26,26,0.45);
+      --text-faint:rgba(26,26,26,0.18);
+      --border:    rgba(26,26,26,0.07);
+      --cal-dot:   rgba(26,26,26,0.12);
+      --cal-text:  rgba(26,26,26,0.45);
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      height: 40px;
+      background: var(--accent);
+      color: var(--accent-fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      font-size: 13px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .header-arrow {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .header-arrow:hover { color: rgba(255,255,255,1); }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ================================================
+       KOLUMNY
+       ================================================ */
+
+    .col-cal,
+    .col-journal {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    .col-cal     { width: 320px; flex-shrink: 0; background: var(--bg-side); }
+    .col-journal { flex: 1; background: var(--bg); border-right: none; }
+
+    .col-header {
+      padding: 6px 12px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .col-inner {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* ================================================
+       KALENDARZ I ZEGAR
+       ================================================ */
+
+    #cal-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      padding: 10px 8px 0;
+    }
+
+    #cal-weekdays span {
+      font-size: 10px;
+      text-align: center;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    #cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      padding: 6px 8px 10px;
+    }
+
+    .cal-btn {
+      aspect-ratio: 2 / 3;
+      border: none;
+      background: transparent;
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      color: var(--cal-text);
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.1s;
+    }
+
+    .cal-btn:hover       { background: var(--cal-dot); }
+    .cal-btn.has-entry   { color: var(--text); }
+    .cal-btn.today       { background: var(--accent); color: var(--accent-fg); font-weight: bold; }
+    .cal-btn.selected    { background: var(--cal-dot); }
+    .cal-btn.today.selected { background: var(--accent); }
+
+    #clock {
+      font-family: 'Nunito', sans-serif;
+      font-size: 38px;
+      font-weight: 300;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      text-align: center;
+      width: fit-content;
+      padding: 12px 18px;
+      margin: 14px auto;
+      border: 3px solid var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    #clock:hover { color: var(--text); border-color: var(--text-dim); }
+
+    /* ================================================
+       STREAM DZIENNIKA
+       ================================================ */
+
+    #stream {
+      padding: 2rem 2.5rem;
+    }
+
+    #stream::after {
+      content: '';
+      display: block;
+      height: 80vh;
+    }
+
+    .day-block { margin-bottom: 2rem; }
+
+    .day-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .day-date {
+      font-size: 15px;
+      color: var(--text-dim);
+      font-family: 'Nunito', sans-serif;
+      flex-shrink: 0;
+    }
+
+    .day-textarea {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-family: 'Nunito', sans-serif;
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--text);
+      resize: none;
+      outline: none;
+      min-height: 40px;
+      overflow: hidden;
+      display: block;
+    }
+
+    .day-textarea::placeholder {
+      color: var(--text-faint);
+      font-style: italic;
+    }
+
+    /* ================================================
+       HEADER — status zapisu, eksport/import
+       ================================================ */
+
+    #save-status {
+      position: absolute;
+      left: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: none;
+      color: rgba(255,255,255,0.6);
+    }
+
+    #save-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4caf50; /* zielony — zapisano */
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    #save-dot.saving { background: #ff9800; } /* pomarańczowy — trwa zapisywanie */
+    #save-dot.error  { background: #e53935; } /* czerwony — błąd zapisu */
+
+    #settings-wrap {
+      position: absolute;
+      right: 1rem;
+    }
+
+    #btn-settings {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+    }
+
+    #btn-settings:hover { color: rgba(255,255,255,1); }
+
+    #settings-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 28px;
+      background: var(--accent);
+      border-radius: 8px;
+      padding: 8px 0;
+      min-width: 160px;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .settings-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      padding: 10px 16px 4px;
+      display: block;
+    }
+
+    .settings-btn {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      padding: 7px 16px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .settings-btn:hover { color: rgba(255,255,255,1); }
+
+    .settings-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin: 6px 0;
+    }
+
+    /* Przyciski motywów w menu */
+    .theme-btn {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      padding: 7px 16px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .theme-btn:hover { color: rgba(255,255,255,1); }
+    .theme-btn.active { color: rgba(255,255,255,1); font-weight: 600; }
+
+    /* ================================================
+       MEDIA QUERY — layout mobilny (≤768px)
+       ================================================ */
+    @media (max-width: 768px) {
+      html, body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Na mobile kolumny układają się pionowo */
+      .layout {
+        flex-direction: column;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        height: calc(100vh - 40px);
+        scroll-snap-type: y mandatory;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Każda kolumna zajmuje cały ekran */
+      .col-cal,
+      .col-journal {
+        flex: none;
+        width: 100% !important;
+        height: calc(100vh - 40px);
+        min-height: calc(100vh - 40px);
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        scroll-snap-align: start;
+      }
+
+      /* Wnętrze kolumny scrolluje pionowo */
+      .col-inner {
+        height: calc(100vh - 40px - 30px);
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      /* Zegar wyśrodkowany w wolnej przestrzeni pod kalendarzem */
+      .col-cal .col-inner {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #clock {
+        margin-top: auto;
+        margin-bottom: auto;
+        font-size: 46px;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="login-screen">
+    <h1>Dziennik</h1>
+    <button id="btn-github-login" onclick="loginWithGithub()">Zaloguj się przez GitHub</button>
+  </div>
+
+  <header>
+    <div id="save-status" title="Stan zapisu">
+      <span id="save-dot" class="saving"></span><span id="save-text">Wczytywanie…</span>
+    </div>
+    <button class="header-arrow" onclick="changeMonth(-1)" title="Poprzedni miesiąc">‹</button>
+    <span id="header-title">DZIENNIK</span>
+    <button class="header-arrow" onclick="changeMonth(1)" title="Następny miesiąc">›</button>
+    <div id="settings-wrap">
+      <button id="btn-settings" onclick="toggleSettings()" title="Ustawienia">⚙</button>
+      <div id="settings-menu">
+        <span class="settings-label">Motyw</span>
+        <div id="theme-grid"></div>
+        <hr class="settings-divider">
+        <button class="settings-btn" onclick="exportData(); toggleSettings()">↓ eksport</button>
+        <label class="settings-btn">↑ import
+          <input type="file" accept=".json" onchange="importData(event); toggleSettings()" style="display:none;">
+        </label>
+        <hr class="settings-divider">
+        <button class="settings-btn" onclick="logout()">Wyloguj</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <div class="col-cal">
+      <div class="col-header">Kalendarz</div>
+      <div class="col-inner">
+        <div id="cal-weekdays">
+          <span>Po</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span>
+        </div>
+        <div id="cal-grid"></div>
+        <div id="clock" onclick="insertTime()" title="Kliknij żeby wstawić godzinę"></div>
+      </div>
+    </div>
+
+    <div class="col-journal">
+      <div class="col-header">Dziennik</div>
+      <div class="col-inner" id="stream"></div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    /* ================================================
+       KONFIGURACJA SUPABASE
+       ================================================ */
+
+    const CONFIG = {
+      supabaseUrl: 'https://oypcxvvlrgoeugtnwzpr.supabase.co',
+      supabaseKey: 'sb_publishable_bcLT02UuG5OkUXB4bKaLqg_CguRWD4a',
+    };
+
+    const supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+
+    /* ================================================
+       LOGOWANIE — GitHub przez Supabase Auth
+       ================================================ */
+
+    let currentUserId = null; // prawdziwe ID zalogowanej osoby (nie sztywny numer)
+    let appStarted     = false;
+
+    // Pokazuje aplikację i chowa ekran logowania
+    function showApp() {
+      document.body.classList.add('authed');
+    }
+
+    // Chowa aplikację i pokazuje ekran logowania
+    function showLogin() {
+      document.body.classList.remove('authed');
+    }
+
+    // Przekierowuje na GitHub żeby się zalogować
+    function loginWithGithub() {
+      supabaseClient.auth.signInWithOAuth({
+        provider: 'github',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+    }
+
+    // Wylogowuje i odświeża stronę
+    function logout() {
+      supabaseClient.auth.signOut().then(() => window.location.reload());
+    }
+
+    // Reaguje na zmianę stanu logowania (zalogowano / wylogowano / powrót z GitHuba)
+    function handleSession(session) {
+      if (session && session.user) {
+        currentUserId = session.user.id;
+        showApp();
+        if (!appStarted) {
+          appStarted = true;
+          startApp();
+        }
+      } else {
+        currentUserId = null;
+        showLogin();
+      }
+    }
+
+    // Nasłuchuje na zmiany logowania — wywoła się od razu z aktualnym stanem, i ponownie po każdej zmianie
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
+    });
+
+    /* ================================================
+       DANE — trzymane w pamięci, zapisywane wyłącznie w Supabase
+       ================================================ */
+
+    let journalData = {};
+
+    // Ustawia wskaźnik w headerze: 'saving' (trwa zapisywanie), 'saved' (zapisano), 'error' (błąd)
+    function setSaveStatus(state) {
+      const dot  = document.getElementById('save-dot');
+      const text = document.getElementById('save-text');
+      if (!dot || !text) return;
+      dot.className = state === 'saved' ? '' : state;
+      text.textContent = state === 'saving' ? 'Zapisywanie…'
+                        : state === 'error'  ? 'Błąd zapisu'
+                        : 'Zapisano';
+    }
+
+    // Pobiera wszystkie dni z Supabase i buduje widok.
+    // Uwaga: nie filtrujemy tu po user_id — RLS (reguły bezpieczeństwa w bazie)
+    // same zwracają tylko wiersze należące do zalogowanej osoby.
+    async function syncFromSupabase() {
+      try {
+        const { data, error } = await supabaseClient.from('journal').select('*');
+
+        if (error) { console.warn('Supabase odczyt nieudany:', error.message); setSaveStatus('error'); return; }
+
+        data.forEach(row => {
+          journalData[row.date] = { text: row.text || '' };
+        });
+
+        buildCalendar();
+        buildStream();
+        setSaveStatus('saved');
+      } catch (e) {
+        console.warn('Supabase niedostępny:', e);
+        setSaveStatus('error');
+      }
+    }
+
+    // Wysyła dany dzień do Supabase (upsert — nadpisuje lub tworzy wiersz)
+    async function syncDayToSupabase(key) {
+      const day = journalData[key];
+      if (!day) return;
+
+      setSaveStatus('saving');
+
+      try {
+        const { error } = await supabaseClient.from('journal').upsert({
+          user_id: currentUserId,
+          date: key,
+          text: day.text || '',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,date' });
+
+        if (error) { console.warn('Supabase zapis nieudany:', error.message); setSaveStatus('error'); return; }
+        setSaveStatus('saved');
+      } catch (e) {
+        console.warn('Supabase niedostępny, zapisano tylko lokalnie:', e);
+        setSaveStatus('error');
+      }
+    }
+
+    /* ================================================
+       AKTYWNY MIESIĄC — który miesiąc jest aktualnie wyświetlany
+       ================================================ */
+
+    const _now = new Date();
+    let viewYear  = _now.getFullYear();
+    let viewMonth = _now.getMonth() + 1; // 1-12
+
+    /* ================================================
+       POMOCNICZE FUNKCJE DATY
+       ================================================ */
+
+    const WEEKDAYS = ['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'];
+    const MONTHS   = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
+                      'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+
+    // Zwraca klucz dzisiejszej daty w formacie YYYY-MM-DD
+    function todayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // Tworzy klucz daty z podanych wartości
+    function dateKey(year, month, day) {
+      return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    }
+
+    // Zwraca liczbę dni w miesiącu
+    function daysInMonth(year, month) {
+      return new Date(year, month, 0).getDate();
+    }
+
+    // Formatuje klucz do polskiej nazwy daty np. "Poniedziałek, 1 Czerwiec 2026"
+    function formatDate(key) {
+      const date = new Date(key + 'T12:00:00');
+      return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+    }
+
+    // Zwraca rok, miesiąc, dzień i liczbę dni w bieżącym miesiącu
+    function currentDate() {
+      const now = new Date();
+      const year  = now.getFullYear();
+      const month = now.getMonth() + 1;
+      return { year, month, today: now.getDate(), total: daysInMonth(year, month) };
+    }
+
+    /* ================================================
+       KALENDARZ
+       ================================================ */
+
+    // Buduje siatkę kalendarza dla viewYear/viewMonth
+    function buildCalendar() {
+      const { today, year: todayYear, month: todayMonth } = currentDate();
+      const total   = daysInMonth(viewYear, viewMonth);
+      const isToday = viewYear === todayYear && viewMonth === todayMonth;
+      const grid    = document.getElementById('cal-grid');
+      grid.innerHTML = '';
+
+      document.getElementById('header-title').textContent =
+        MONTHS[viewMonth - 1].toUpperCase() + ' ' + viewYear;
+
+      // Ile pustych pól wstawić przed dniem 1 (tydzień zaczyna się w poniedziałek)
+      const firstWeekday = new Date(viewYear, viewMonth - 1, 1).getDay(); // 0=Nd,1=Po,...6=So
+      const leadingEmpty = (firstWeekday + 6) % 7; // przelicz na 0=Po,...6=Nd
+      for (let i = 0; i < leadingEmpty; i++) {
+        grid.appendChild(document.createElement('div'));
+      }
+
+      for (let d = 1; d <= total; d++) {
+        const key = dateKey(viewYear, viewMonth, d);
+        const btn = document.createElement('button');
+        btn.className   = 'cal-btn';
+        btn.textContent = d;
+        btn.dataset.day = d;
+        if (isToday && d === today) btn.classList.add('today', 'selected');
+        if (journalData[key] && journalData[key].text) btn.classList.add('has-entry');
+        btn.addEventListener('click', () => scrollToDay(key, btn));
+        grid.appendChild(btn);
+      }
+    }
+
+    // Przechodzi o jeden miesiąc do przodu lub do tyłu (delta = 1 lub -1)
+    function changeMonth(delta) {
+      viewMonth += delta;
+      if (viewMonth > 12) { viewMonth = 1;  viewYear++; }
+      if (viewMonth < 1)  { viewMonth = 12; viewYear--; }
+      buildCalendar();
+      buildStream();
+    }
+
+    // Scrolluje dziennik do wybranego dnia i zaznacza go w kalendarzu
+    function scrollToDay(key, calBtn) {
+      const block  = document.getElementById('block-' + key);
+      const stream = document.getElementById('stream');
+      if (block && stream) {
+        const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+        stream.scrollBy({ top: diff, behavior: 'smooth' });
+      }
+      document.querySelectorAll('.cal-btn').forEach(b => b.classList.remove('selected'));
+      if (calBtn) {
+        calBtn.classList.add('selected');
+        const { today } = currentDate();
+        if (parseInt(calBtn.dataset.day) === today) calBtn.classList.add('today');
+      }
+    }
+
+    /* ================================================
+       STREAM DZIENNIKA
+       ================================================ */
+
+    let autosaveTimer = null;
+
+    // Dopasowuje wysokość textarea do zawartości
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    // Buduje strumień dziennika dla viewYear/viewMonth
+    function buildStream() {
+      const { today, year: todayYear, month: todayMonth } = currentDate();
+      const isToday = viewYear === todayYear && viewMonth === todayMonth;
+      const total   = daysInMonth(viewYear, viewMonth);
+      const stream  = document.getElementById('stream');
+      stream.innerHTML = '';
+
+      for (let d = 1; d <= total; d++) {
+        const key = dateKey(viewYear, viewMonth, d);
+        // Przyszłe dni bieżącego miesiąca pomijamy jeśli nie mają wpisu
+        if (isToday && d > today && !journalData[key]) continue;
+        if (!journalData[key]) journalData[key] = { text: '' };
+        stream.appendChild(buildDayBlock(key, d, isToday ? today : -1));
+      }
+    }
+
+    // Tworzy pojedynczy blok dnia (data + textarea)
+    function buildDayBlock(key, dayNumber, todayNumber) {
+      const block = document.createElement('div');
+      block.className = 'day-block';
+      block.id = 'block-' + key;
+
+      const header = document.createElement('div');
+      header.className = 'day-header';
+
+      const dateLabel = document.createElement('span');
+      dateLabel.className   = 'day-date';
+      dateLabel.textContent = formatDate(key);
+      header.appendChild(dateLabel);
+
+      const textarea = document.createElement('textarea');
+      textarea.className   = 'day-textarea';
+      textarea.value       = journalData[key].text || '';
+      textarea.placeholder = (dayNumber === todayNumber) ? 'pisz...' : '';
+
+      textarea.addEventListener('input', function () {
+        autoResize(this);
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => {
+          journalData[key] = journalData[key] || {};
+          journalData[key].text = this.value;
+          syncDayToSupabase(key);
+          const btn = document.querySelector(`.cal-btn[data-day="${dayNumber}"]`);
+          if (btn) btn.classList.toggle('has-entry', !!this.value);
+        }, 500);
+      });
+
+      block.appendChild(header);
+      block.appendChild(textarea);
+      requestAnimationFrame(() => autoResize(textarea));
+      return block;
+    }
+
+    // Śledzi scroll i aktualizuje zaznaczenie w kalendarzu
+    function initScrollSync() {
+      const stream = document.getElementById('stream');
+      stream.addEventListener('scroll', function () {
+        let activeDay = null;
+        document.querySelectorAll('.day-block').forEach(block => {
+          if (block.getBoundingClientRect().top <= stream.getBoundingClientRect().top + 50) {
+            activeDay = block.id.replace('block-', '');
+          }
+        });
+        if (!activeDay) return;
+        const dayNumber = parseInt(activeDay.split('-')[2], 10);
+        document.querySelectorAll('.cal-btn').forEach(btn => {
+          btn.classList.toggle('selected', parseInt(btn.dataset.day) === dayNumber);
+        });
+      });
+    }
+
+    /* ================================================
+       ZEGAR
+       ================================================ */
+
+    // Aktualizuje zegar w kolumnie kalendarza
+    function updateClock() {
+      const now = new Date();
+      const el  = document.getElementById('clock');
+      if (el) el.textContent =
+        `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+
+    // Wstawia aktualną godzinę do textarea dzisiejszego dnia; na mobile najpierw scrolluje do dziennika
+    function insertTime() {
+      if (window.innerWidth <= 768) {
+        const layout     = document.querySelector('.layout');
+        const colJournal = document.querySelector('.col-journal');
+        if (layout && colJournal) {
+          layout.scrollTo({ top: colJournal.offsetTop, behavior: 'smooth' });
+        }
+      }
+
+      const now  = new Date();
+      const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const key  = todayKey();
+
+      const ta = document.querySelector('#block-' + key + ' .day-textarea');
+      if (!ta) return;
+      const needsNewline = ta.value.length > 0 && !ta.value.endsWith('\n');
+      ta.value += (needsNewline ? '\n' : '') + `${time} `;
+
+      journalData[key] = journalData[key] || {};
+      journalData[key].text = ta.value;
+      syncDayToSupabase(key);
+      autoResize(ta);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = ta.value.length;
+    }
+
+    /* ================================================
+       USTAWIENIA — eksport i import
+       ================================================ */
+
+    // Otwiera/zamyka menu ustawień
+    function toggleSettings() {
+      const menu = document.getElementById('settings-menu');
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Zamyka menu gdy klikniesz gdzieś indziej na stronie
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('#settings-wrap')) {
+        const menu = document.getElementById('settings-menu');
+        if (menu) menu.style.display = 'none';
+      }
+    });
+
+    // Eksportuje dane dziennika do pliku JSON
+    function exportData() {
+      const backup = {
+        version:    1,
+        exportedAt: new Date().toISOString(),
+        journal:    journalData,
+      };
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `dziennik-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Importuje dane z pliku JSON i wysyła każdy dzień do Supabase
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const backup = JSON.parse(e.target.result);
+          if (!backup.journal) { alert('Nieprawidłowy plik backupu.'); return; }
+          if (!confirm('Czy na pewno chcesz wczytać backup? Aktualne dane zostaną zastąpione.')) return;
+          journalData = backup.journal;
+          Object.keys(journalData).forEach(key => syncDayToSupabase(key));
+          buildCalendar();
+          buildStream();
+          setTimeout(() => {
+            const key    = todayKey();
+            const block  = document.getElementById('block-' + key);
+            const stream = document.getElementById('stream');
+            if (block && stream) {
+              const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+              stream.scrollBy({ top: diff, behavior: 'instant' });
+            }
+          }, 100);
+        } catch (err) { alert('Błąd podczas wczytywania pliku.'); }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    /* ================================================
+       MOTYWY
+       ================================================ */
+
+    const THEMES = {
+      jasny: {
+        label: 'Jasny',
+        bg: '#ffffff', bgSide: '#e8e8e8',
+        accent: '#1a1a1a', accentFg: '#ffffff',
+        text: 'rgba(26,26,26,0.75)', textDim: 'rgba(26,26,26,0.45)',
+        textFaint: 'rgba(26,26,26,0.18)',
+        border: 'rgba(26,26,26,0.07)', calDot: 'rgba(26,26,26,0.12)',
+        calText: 'rgba(26,26,26,0.45)',
+      },
+      ciemny: {
+        label: 'Ciemny',
+        bg: '#1e1e1e', bgSide: '#2a2a2a',
+        accent: '#141414', accentFg: '#e0e0e0',
+        text: 'rgba(224,224,224,0.85)', textDim: 'rgba(224,224,224,0.5)',
+        textFaint: 'rgba(224,224,224,0.2)',
+        border: 'rgba(255,255,255,0.07)', calDot: 'rgba(255,255,255,0.15)',
+        calText: 'rgba(224,224,224,0.5)',
+      },
+    };
+
+    let activeTheme = localStorage.getItem('dziennik-theme') || 'jasny';
+
+    // Aplikuje motyw — ustawia zmienne CSS na :root
+    function applyTheme(key) {
+      const t = THEMES[key];
+      if (!t) return;
+      const root = document.documentElement.style;
+      root.setProperty('--bg',          t.bg);
+      root.setProperty('--bg-side',     t.bgSide);
+      root.setProperty('--accent',      t.accent);
+      root.setProperty('--accent-fg',   t.accentFg);
+      root.setProperty('--text',        t.text);
+      root.setProperty('--text-dim',    t.textDim);
+      root.setProperty('--text-faint',  t.textFaint);
+      root.setProperty('--border',      t.border);
+      root.setProperty('--cal-dot',     t.calDot);
+      root.setProperty('--cal-text',    t.calText);
+      activeTheme = key;
+      localStorage.setItem('dziennik-theme', key);
+    }
+
+    // Buduje przyciski motywów w menu
+    function buildThemeGrid() {
+      const grid = document.getElementById('theme-grid');
+      grid.innerHTML = '';
+      Object.keys(THEMES).forEach(key => {
+        const btn = document.createElement('button');
+        btn.className = 'theme-btn' + (key === activeTheme ? ' active' : '');
+        btn.dataset.theme = key;
+        btn.textContent = (key === activeTheme ? '✓ ' : '') + THEMES[key].label;
+        btn.addEventListener('click', () => {
+          applyTheme(key);
+          buildThemeGrid();
+        });
+        grid.appendChild(btn);
+      });
+    }
+
+    /* ================================================
+       START APLIKACJI — wywoływane raz, po zalogowaniu
+       ================================================ */
+
+    function startApp() {
+      applyTheme(activeTheme);
+      buildThemeGrid();
+      buildCalendar();
+      buildStream();
+      updateClock();
+      setInterval(updateClock, 60000);
+      initScrollSync();
+      syncFromSupabase();
+
+      // Przewiń do dzisiejszego dnia po załadowaniu
+      setTimeout(() => {
+        const key    = todayKey();
+        const block  = document.getElementById('block-' + key);
+        const stream = document.getElementById('stream');
+        if (block && stream) {
+          const diff = block.getBoundingClientRect().top - stream.getBoundingClientRect().top - 16;
+          stream.scrollBy({ top: diff, behavior: 'instant' });
+        }
+      }, 100);
+    }
+
+  </script>
+
+</body>
+</html>
